@@ -1,0 +1,897 @@
+// public/js/app.js
+// Logica client pentru FAZAN. Vanilla JS, fara build step.
+
+(() => {
+  "use strict";
+
+  // ------------------------------------------------------------------
+  // Stare locala
+  // ------------------------------------------------------------------
+  const state = {
+    nickname: localStorage.getItem("fazan_nickname") || "",
+    email: localStorage.getItem("fazan_email") || "",
+    socket: null,
+    myId: null,
+    room: null, // ultima stare de room primita de la server
+    dictionaryWords: [],
+    settings: {
+      sound: localStorage.getItem("fazan_sound") !== "0",
+      anim: localStorage.getItem("fazan_anim") !== "0",
+    },
+    sp: null, // stare singleplayer locala
+    timerInterval: null,
+    turnEndsAt: null,
+  };
+
+  // ------------------------------------------------------------------
+  // Navigare intre ecrane
+  // ------------------------------------------------------------------
+  function showScreen(id) {
+    document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
+    const el = document.getElementById("screen-" + id);
+    if (el) el.classList.add("active");
+    window.scrollTo(0, 0);
+  }
+
+  document.querySelectorAll("[data-nav]").forEach((el) => {
+    el.addEventListener("click", () => {
+      const target = el.getAttribute("data-nav");
+      handleNav(target);
+    });
+  });
+
+  function handleNav(target) {
+    if (target === "menu") showScreen("menu");
+    else if (target === "singleplayer") showScreen("sp-setup");
+    else if (target === "multiplayer") {
+      showScreen("mp-hub");
+      requestPublicRooms();
+    } else if (target === "leaderboard") {
+      loadLeaderboard();
+      showScreen("leaderboard");
+    } else if (target === "profile") {
+      loadProfile();
+      showScreen("profile");
+    } else if (target === "settings") {
+      showScreen("settings");
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // Toast helper
+  // ------------------------------------------------------------------
+  function toast(msg) {
+    const root = document.getElementById("toast-root");
+    const el = document.createElement("div");
+    el.className = "toast";
+    el.textContent = msg;
+    root.appendChild(el);
+    setTimeout(() => el.remove(), 3200);
+  }
+
+  // ------------------------------------------------------------------
+  // Sunet (Web Audio API — fara fisiere externe)
+  // ------------------------------------------------------------------
+  let audioCtx = null;
+  function ensureAudio() {
+    if (!audioCtx) {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { /* noop */ }
+    }
+  }
+  function beep(freq, duration, type = "sine", vol = 0.18) {
+    if (!state.settings.sound) return;
+    ensureAudio();
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.value = vol;
+    osc.connect(gain).connect(audioCtx.destination);
+    const now = audioCtx.currentTime;
+    gain.gain.setValueAtTime(vol, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    osc.start(now);
+    osc.stop(now + duration);
+  }
+  const sfx = {
+    correct: () => beep(720, 0.15, "sine"),
+    wrong: () => beep(160, 0.25, "sawtooth"),
+    turn: () => beep(480, 0.12, "triangle"),
+    life: () => beep(300, 0.3, "square"),
+    eliminated: () => beep(120, 0.5, "sawtooth"),
+    win: () => { beep(660, 0.15); setTimeout(() => beep(880, 0.2), 130); setTimeout(() => beep(1050, 0.3), 280); },
+    click: () => beep(500, 0.06, "square", 0.08),
+  };
+  document.addEventListener("click", () => { ensureAudio(); }, { once: true });
+
+  // ------------------------------------------------------------------
+  // Confetti minimalist
+  // ------------------------------------------------------------------
+  function launchConfetti() {
+    if (!state.settings.anim) return;
+    const root = document.getElementById("confetti-root");
+    const colors = ["#7C5CFF", "#3EDBB5", "#FFB454", "#FF5C7A", "#5FA8FF"];
+    for (let i = 0; i < 80; i++) {
+      const piece = document.createElement("div");
+      piece.className = "confetti-piece";
+      const size = 6 + Math.random() * 6;
+      piece.style.width = size + "px";
+      piece.style.height = size * 0.4 + "px";
+      piece.style.left = Math.random() * 100 + "vw";
+      piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+      piece.style.animationDuration = 2.4 + Math.random() * 1.8 + "s";
+      piece.style.animationDelay = Math.random() * 0.4 + "s";
+      root.appendChild(piece);
+      setTimeout(() => piece.remove(), 5000);
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // Fundal animat cu particule (litere plutitoare)
+  // ------------------------------------------------------------------
+  (function initBackground() {
+    const canvas = document.getElementById("bg-canvas");
+    const ctx = canvas.getContext("2d");
+    let particles = [];
+    const letters = "AĂÂBCDEFGHIÎJKLMNOPQRSȘTȚUVWXYZ".split("");
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener("resize", resize);
+    resize();
+
+    function spawn() {
+      particles = [];
+      const count = Math.min(28, Math.floor((canvas.width * canvas.height) / 45000));
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          letter: letters[Math.floor(Math.random() * letters.length)],
+          size: 14 + Math.random() * 20,
+          speed: 0.15 + Math.random() * 0.3,
+          drift: (Math.random() - 0.5) * 0.3,
+          opacity: 0.04 + Math.random() * 0.07,
+        });
+      }
+    }
+    spawn();
+
+    function tick() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.font = "600 20px 'Space Grotesk', sans-serif";
+      for (const p of particles) {
+        ctx.fillStyle = `rgba(124,92,255,${p.opacity})`;
+        ctx.font = `600 ${p.size}px 'Space Grotesk', sans-serif`;
+        ctx.fillText(p.letter, p.x, p.y);
+        p.y -= p.speed;
+        p.x += p.drift;
+        if (p.y < -30) { p.y = canvas.height + 30; p.x = Math.random() * canvas.width; }
+      }
+      requestAnimationFrame(tick);
+    }
+    tick();
+  })();
+
+  // ------------------------------------------------------------------
+  // WELCOME screen
+  // ------------------------------------------------------------------
+  const inputNickname = document.getElementById("input-nickname");
+  const inputEmail = document.getElementById("input-email");
+  const emailField = document.getElementById("email-field");
+  const btnShowEmail = document.getElementById("btn-show-email");
+  const btnEnter = document.getElementById("btn-enter");
+
+  inputNickname.value = state.nickname;
+  if (state.email) inputEmail.value = state.email;
+
+  btnShowEmail.addEventListener("click", () => {
+    emailField.classList.toggle("hidden");
+    btnShowEmail.textContent = emailField.classList.contains("hidden")
+      ? "Am cont — conectează-te cu email"
+      : "Continuă doar ca invitat";
+  });
+
+  btnEnter.addEventListener("click", async () => {
+    const nickname = inputNickname.value.trim().slice(0, 20);
+    if (!nickname) { toast("Introdu un nickname."); return; }
+    const email = emailField.classList.contains("hidden") ? "" : inputEmail.value.trim();
+
+    state.nickname = nickname;
+    state.email = email;
+    localStorage.setItem("fazan_nickname", nickname);
+    localStorage.setItem("fazan_email", email);
+
+    if (email) {
+      try {
+        await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, nickname }),
+        });
+      } catch (e) { /* continua oricum */ }
+    }
+
+    connectSocket();
+    document.getElementById("menu-nickname").textContent = "👋 " + nickname;
+    showScreen("menu");
+  });
+
+  // ------------------------------------------------------------------
+  // Socket.IO
+  // ------------------------------------------------------------------
+  function connectSocket() {
+    if (state.socket) return;
+    state.socket = io();
+    const s = state.socket;
+
+    s.on("connect", () => {
+      state.myId = s.id;
+      s.emit("set_identity", { nickname: state.nickname, email: state.email || null });
+    });
+
+    // reconectare: id nou dupa disconnect
+    s.on("disconnect", () => {
+      toast("Conexiune pierdută. Se încearcă reconectarea...");
+    });
+    s.io.on("reconnect", () => {
+      state.myId = s.id;
+      s.emit("set_identity", { nickname: state.nickname, email: state.email || null });
+      toast("Reconectat!");
+    });
+
+    s.on("public_rooms", ({ rooms }) => renderPublicRooms(rooms));
+    s.on("room_update", (room) => onRoomUpdate(room));
+    s.on("wheel_spin", (data) => onWheelSpin(data));
+    s.on("turn_changed", (data) => onTurnChanged(data));
+    s.on("word_accepted", (data) => onWordAccepted(data));
+    s.on("word_rejected", (data) => onWordRejected(data));
+    s.on("time_expired", (data) => {
+      if (data.playerId === state.myId) toast("Timpul a expirat!");
+    });
+    s.on("life_lost", (data) => onLifeLost(data));
+    s.on("player_eliminated", (data) => onPlayerEliminated(data));
+    s.on("player_disconnected", (data) => onPlayerDisconnected(data));
+    s.on("game_over", (data) => onGameOver(data));
+    s.on("play_again_status", (data) => {
+      document.getElementById("play-again-count").textContent = `(${data.votes}/${data.needed})`;
+    });
+    s.on("error_message", (data) => toast(data.message));
+  }
+
+  // ------------------------------------------------------------------
+  // MULTIPLAYER HUB
+  // ------------------------------------------------------------------
+  function requestPublicRooms() {
+    if (state.socket) state.socket.emit("list_public_rooms");
+  }
+  document.getElementById("btn-refresh-rooms").addEventListener("click", requestPublicRooms);
+
+  function renderPublicRooms(rooms) {
+    const root = document.getElementById("public-rooms-list");
+    if (!rooms.length) {
+      root.innerHTML = `<p class="muted">Nicio cameră publică deschisă momentan. Creează una!</p>`;
+      return;
+    }
+    root.innerHTML = "";
+    rooms.forEach((r) => {
+      const row = document.createElement("div");
+      row.className = "room-row";
+      row.innerHTML = `
+        <div class="room-info">
+          <b>${escapeHtml(r.name)}</b>
+          <span class="room-count">${r.count}/${r.max} jucători · ${escapeHtml(r.code)}</span>
+        </div>
+        <button class="btn btn-secondary" data-join="${r.code}">Join</button>
+      `;
+      root.appendChild(row);
+    });
+    root.querySelectorAll("[data-join]").forEach((btn) => {
+      btn.addEventListener("click", () => joinRoom(btn.getAttribute("data-join")));
+    });
+  }
+
+  document.getElementById("btn-create-room").addEventListener("click", () => {
+    const name = document.getElementById("input-room-name").value.trim();
+    const isPublic = document.getElementById("input-room-public").checked;
+    state.socket.emit("create_room", { name, isPublic }, (res) => {
+      if (!res.ok) return toast(res.error || "Eroare la crearea camerei.");
+      state.room = res.room;
+      renderLobby(res.room);
+      showScreen("lobby");
+    });
+  });
+
+  document.getElementById("btn-join-room").addEventListener("click", () => {
+    const code = document.getElementById("input-join-code").value.trim().toUpperCase();
+    if (!code) return toast("Introdu un cod de cameră.");
+    joinRoom(code);
+  });
+
+  function joinRoom(code) {
+    state.socket.emit("join_room", { code }, (res) => {
+      if (!res.ok) return toast(res.error || "Nu s-a putut intra în cameră.");
+      state.room = res.room;
+      renderLobby(res.room);
+      showScreen("lobby");
+    });
+  }
+
+  document.querySelectorAll('[data-action="leave-room"]').forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (state.socket) state.socket.emit("leave_room");
+      state.room = null;
+      showScreen("menu");
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // ROOM UPDATES / LOBBY
+  // ------------------------------------------------------------------
+  function onRoomUpdate(room) {
+    state.room = room;
+    if (room.state === "lobby") {
+      renderLobby(room);
+      if (document.getElementById("screen-lobby").classList.contains("active") === false &&
+          document.getElementById("screen-mp-hub").classList.contains("active") === false) {
+        // ramai unde esti daca esti in joc deja (ex: cineva iese)
+      }
+    }
+    if (room.state === "playing") renderSidebar(room);
+  }
+
+  function renderLobby(room) {
+    document.getElementById("lobby-room-code").textContent = room.code;
+    const wrap = document.getElementById("lobby-players");
+    wrap.innerHTML = "";
+    room.players.forEach((p, i) => {
+      const row = document.createElement("div");
+      row.className = "lobby-player-row";
+      row.innerHTML = `
+        <div class="avatar" style="background:${p.color}">${p.nickname.slice(0,1).toUpperCase()}</div>
+        <div class="player-name-col">
+          <div class="player-name-row">
+            ${escapeHtml(p.nickname)} ${p.isHost ? '<span class="host-badge">HOST</span>' : ""}
+          </div>
+          <span class="muted" style="font-size:11.5px">${p.connected ? "Online" : "Deconectat"}</span>
+        </div>
+        <span class="${p.connected ? 'player-online-dot' : 'player-offline-dot'}"></span>
+      `;
+      wrap.appendChild(row);
+    });
+    for (let i = room.players.length; i < 4; i++) {
+      const row = document.createElement("div");
+      row.className = "lobby-player-row waiting-slot";
+      row.innerHTML = `<div class="avatar" style="background:#333"></div><div class="player-name-col"><div class="player-name-row">Locul ${i+1} — Waiting...</div></div>`;
+      wrap.appendChild(row);
+    }
+
+    const isHost = room.hostId === state.myId;
+    const startBtn = document.getElementById("btn-start-game");
+    const hint = document.getElementById("lobby-hint");
+    if (isHost) {
+      startBtn.classList.remove("hidden");
+      startBtn.disabled = room.players.length < 2;
+      hint.textContent = room.players.length < 2
+        ? "Este nevoie de cel puțin 2 jucători pentru a începe."
+        : "Poți începe partida oricând.";
+    } else {
+      startBtn.classList.add("hidden");
+      hint.textContent = "Se așteaptă ca gazda să înceapă partida...";
+    }
+  }
+
+  document.getElementById("btn-start-game").addEventListener("click", () => {
+    state.socket.emit("start_game");
+  });
+
+  document.getElementById("btn-copy-code").addEventListener("click", () => {
+    const code = document.getElementById("lobby-room-code").textContent;
+    navigator.clipboard?.writeText(code).then(() => toast("Cod copiat!"));
+  });
+
+  // ------------------------------------------------------------------
+  // WHEEL
+  // ------------------------------------------------------------------
+  function onWheelSpin({ order, winnerId }) {
+    showScreen("wheel");
+    const wrap = document.getElementById("wheel-names");
+    const resultEl = document.getElementById("wheel-result");
+    resultEl.classList.add("hidden");
+    wrap.innerHTML = "";
+    order.forEach((p) => {
+      const el = document.createElement("div");
+      el.className = "wheel-name-item";
+      el.textContent = p.nickname;
+      el.dataset.id = p.id;
+      wrap.appendChild(el);
+    });
+
+    const items = Array.from(wrap.children);
+    let cycles = 0;
+    const totalCycles = items.length * 3 + items.findIndex((it) => it.dataset.id === winnerId) + 1;
+    let idx = 0;
+    let delay = 90;
+
+    function step() {
+      items.forEach((it) => it.classList.remove("highlight"));
+      items[idx % items.length].classList.add("highlight");
+      cycles++;
+      idx++;
+      if (cycles >= totalCycles) {
+        const winnerName = order.find((p) => p.id === winnerId)?.nickname || "?";
+        resultEl.textContent = `"${winnerName} începe runda!"`;
+        resultEl.classList.remove("hidden");
+        sfx.turn();
+        return;
+      }
+      delay = delay + cycles * 2.2; // incetinire treptata
+      setTimeout(step, delay);
+    }
+    step();
+  }
+
+  // ------------------------------------------------------------------
+  // GAME SCREEN
+  // ------------------------------------------------------------------
+  const wordForm = document.getElementById("word-form");
+  const inputWord = document.getElementById("input-word");
+  const wordError = document.getElementById("word-error");
+
+  function renderSidebar(room) {
+    showScreen("game");
+    document.getElementById("game-room-code").textContent = room.code;
+    document.getElementById("game-round").textContent = "Runda " + room.round;
+    const wrap = document.getElementById("players-sidebar");
+    wrap.innerHTML = "";
+    room.players.forEach((p) => {
+      const el = document.createElement("div");
+      el.className = "sidebar-player" + (p.alive ? "" : " eliminated");
+      el.dataset.pid = p.id;
+      const hearts = "❤️".repeat(p.lives) + "🖤".repeat(Math.max(0, 3 - p.lives));
+      el.innerHTML = `
+        <div class="avatar" style="background:${p.color}">${p.nickname.slice(0,1).toUpperCase()}</div>
+        <div class="sidebar-player-info">
+          <span class="sidebar-player-name">${escapeHtml(p.nickname)}${p.isBot ? " 🤖" : ""}</span>
+          <span class="sidebar-lives">${p.alive ? hearts : '<span class="eliminated-tag">ELIMINAT</span>'}</span>
+        </div>
+      `;
+      wrap.appendChild(el);
+    });
+  }
+
+  function markCurrentTurn(playerId) {
+    document.querySelectorAll(".sidebar-player").forEach((el) => {
+      el.classList.toggle("current-turn", el.dataset.pid === playerId);
+    });
+  }
+
+  function onTurnChanged(data) {
+    showScreen("game");
+    document.getElementById("game-round").textContent = "Runda " + data.round;
+    markCurrentTurn(data.currentPlayerId);
+    document.getElementById("last-word-display").textContent = data.lastWord ? data.lastWord.toUpperCase() : "—";
+    document.getElementById("prefix-display").textContent = data.requiredPrefix ? data.requiredPrefix.toUpperCase() : "?";
+
+    const isMe = data.currentPlayerId === state.myId;
+    document.getElementById("game-turn-label").textContent = isMe
+      ? "RÂNDUL TĂU!"
+      : `Rândul lui ${playerNickname(data.currentPlayerId)}...`;
+    wordError.classList.add("hidden");
+    inputWord.value = "";
+    inputWord.disabled = !isMe;
+    if (isMe) { inputWord.focus(); sfx.turn(); }
+
+    state.turnEndsAt = data.turnEndsAt;
+    startTimerLoop();
+  }
+
+  function playerNickname(id) {
+    if (!state.room) return "?";
+    const p = state.room.players.find((x) => x.id === id);
+    return p ? p.nickname : "?";
+  }
+
+  function startTimerLoop() {
+    clearInterval(state.timerInterval);
+    const bar = document.getElementById("timer-bar");
+    const text = document.getElementById("timer-text");
+    const total = 15000;
+    function tick() {
+      const remaining = Math.max(0, state.turnEndsAt - Date.now());
+      const pct = (remaining / total) * 100;
+      bar.style.width = pct + "%";
+      text.textContent = (remaining / 1000).toFixed(1) + "s";
+      if (remaining <= 5000) bar.style.background = "var(--red)";
+      else if (remaining <= 10000) bar.style.background = "var(--gold)";
+      else bar.style.background = "var(--teal)";
+      if (remaining <= 0) clearInterval(state.timerInterval);
+    }
+    tick();
+    state.timerInterval = setInterval(tick, 100);
+  }
+
+  wordForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const word = inputWord.value.trim();
+    if (!word) return;
+    if (state.sp) {
+      spSubmitWord(word);
+      return;
+    }
+    state.socket.emit("submit_word", { word });
+    inputWord.disabled = true;
+  });
+
+  function onWordAccepted(data) {
+    sfx.correct();
+    document.getElementById("last-word-display").textContent = data.word.toUpperCase();
+    wordError.classList.add("hidden");
+  }
+
+  function onWordRejected(data) {
+    if (data.playerId !== state.myId) return;
+    sfx.wrong();
+    wordError.textContent = "❌ " + data.reason;
+    wordError.classList.remove("hidden");
+    inputWord.disabled = false;
+    inputWord.focus();
+  }
+
+  function onLifeLost(data) {
+    sfx.life();
+    const el = document.querySelector(`.sidebar-player[data-pid="${data.playerId}"] .sidebar-lives`);
+    if (el) {
+      const hearts = "❤️".repeat(data.livesLeft) + "🖤".repeat(Math.max(0, 3 - data.livesLeft));
+      el.innerHTML = hearts;
+      el.classList.add("heart-lost");
+      setTimeout(() => el.classList.remove("heart-lost"), 500);
+    }
+    if (data.playerId === state.myId) toast("Ai pierdut o viață!");
+  }
+
+  function onPlayerEliminated(data) {
+    sfx.eliminated();
+    const el = document.querySelector(`.sidebar-player[data-pid="${data.playerId}"]`);
+    if (el) el.classList.add("eliminated");
+    toast(`${playerNickname(data.playerId)} a fost eliminat!`);
+  }
+
+  function onPlayerDisconnected(data) {
+    const banner = document.getElementById("disconnect-banner");
+    banner.textContent = `${data.nickname} s-a deconectat.`;
+    banner.classList.remove("hidden");
+    setTimeout(() => banner.classList.add("hidden"), 4000);
+  }
+
+  function onGameOver(data) {
+    clearInterval(state.timerInterval);
+    showScreen("end");
+    document.getElementById("end-winner-name").textContent = data.winnerNickname || "Egalitate";
+    document.querySelector(".end-sub").textContent = data.winnerId ? "a câștigat partida!" : "Partida s-a încheiat.";
+    const isWinner = data.winnerId === state.myId;
+    if (isWinner) { sfx.win(); launchConfetti(); }
+
+    const results = document.getElementById("end-results");
+    results.innerHTML = "";
+    data.results
+      .sort((a, b) => b.won - a.won || b.wordsPlayed - a.wordsPlayed)
+      .forEach((r) => {
+        const row = document.createElement("div");
+        row.className = "end-result-row" + (r.won ? " won" : "");
+        row.innerHTML = `<span>${r.won ? "🏆 " : ""}${escapeHtml(r.nickname)}</span><span>${r.wordsPlayed} cuvinte · ${r.lives}❤️</span>`;
+        results.appendChild(row);
+      });
+    document.getElementById("play-again-count").textContent = "";
+  }
+
+  document.getElementById("btn-play-again").addEventListener("click", () => {
+    if (state.sp) { showScreen("sp-setup"); return; }
+    state.socket.emit("play_again");
+    toast("Ai votat pentru revanșă.");
+  });
+  document.getElementById("btn-leave-end").addEventListener("click", () => {
+    if (state.socket) state.socket.emit("leave_room");
+    state.sp = null;
+    showScreen("menu");
+  });
+
+  // ------------------------------------------------------------------
+  // SINGLEPLAYER (bots ruleaza local in browser, folosind dictionarul de pe server)
+  // ------------------------------------------------------------------
+  let spDifficulty = "medium";
+  let spBotCount = 1;
+
+  document.querySelectorAll("[data-diff]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("[data-diff]").forEach((b) => b.classList.remove("selected"));
+      btn.classList.add("selected");
+      spDifficulty = btn.getAttribute("data-diff");
+    });
+  });
+  document.querySelectorAll("[data-bots]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("[data-bots]").forEach((b) => b.classList.remove("selected"));
+      btn.classList.add("selected");
+      spBotCount = parseInt(btn.getAttribute("data-bots"), 10);
+    });
+  });
+  document.querySelector('[data-diff="medium"]').classList.add("selected");
+  document.querySelector('[data-bots="1"]').classList.add("selected");
+
+  async function ensureDictionary() {
+    if (state.dictionaryWords.length) return;
+    const res = await fetch("/api/dictionary");
+    const data = await res.json();
+    state.dictionaryWords = data.words;
+    buildPrefixMap();
+  }
+
+  let PREFIX_MAP = new Map();
+  function normalizeWord(w) {
+    return (w || "").toString().trim().toLowerCase()
+      .replace(/ş/g, "ș").replace(/ţ/g, "ț")
+      .replace(/[^a-zăâîșț]/g, "");
+  }
+  function buildPrefixMap() {
+    PREFIX_MAP = new Map();
+    for (const w of state.dictionaryWords) {
+      if (w.length < 3) continue;
+      const p = w.slice(0, 2);
+      if (!PREFIX_MAP.has(p)) PREFIX_MAP.set(p, []);
+      PREFIX_MAP.get(p).push(w);
+    }
+  }
+  function spEndsGame(word) {
+    const last2 = word.slice(-2);
+    const cands = (PREFIX_MAP.get(last2) || []).filter((c) => c !== word);
+    return cands.length === 0;
+  }
+  function spValidate(raw, prefix, used) {
+    const w = normalizeWord(raw);
+    if (!w || w.length < 3) return { valid: false, reason: "Cuvantul trebuie sa aiba cel putin 3 litere." };
+    if (!state.dictionaryWords.includes(w)) return { valid: false, reason: "Cuvantul nu a fost gasit in dictionar." };
+    if (prefix && !w.startsWith(prefix)) return { valid: false, reason: `Cuvantul trebuie sa inceapa cu "${prefix.toUpperCase()}".` };
+    if (used.has(w)) return { valid: false, reason: "Acest cuvant a fost deja folosit in aceasta partida." };
+    if (spEndsGame(w)) return { valid: false, reason: "Acest cuvant incheie jocul si nu este permis." };
+    return { valid: true, normalized: w };
+  }
+  function spPickBotWord(prefix, used, difficulty) {
+    let cands = prefix ? (PREFIX_MAP.get(prefix) || []) : state.dictionaryWords;
+    cands = cands.filter((w) => !used.has(w) && !spEndsGame(w));
+    if (!cands.length) return null;
+    const failChance = difficulty === "easy" ? 0.35 : difficulty === "medium" ? 0.12 : 0.02;
+    if (Math.random() < failChance) return null;
+    return cands[Math.floor(Math.random() * cands.length)];
+  }
+
+  document.getElementById("btn-start-sp").addEventListener("click", async () => {
+    await ensureDictionary();
+    startSingleplayer();
+  });
+
+  const BOT_NAMES = ["Bot Andrei", "Bot Elena", "Bot Radu", "Bot Ioana"];
+
+  function startSingleplayer() {
+    const players = [{ id: "me", nickname: state.nickname || "Tu", isBot: false, lives: 3, alive: true, color: "#7C5CFF", wordsThisMatch: 0 }];
+    for (let i = 0; i < spBotCount; i++) {
+      players.push({ id: "bot" + i, nickname: BOT_NAMES[i], isBot: true, lives: 3, alive: true, color: ["#3EDBB5","#FFB454","#FF6B9D"][i % 3], wordsThisMatch: 0 });
+    }
+    state.sp = {
+      players,
+      order: players.map((p) => p.id),
+      currentIndex: 0,
+      used: new Set(),
+      lastWord: null,
+      prefix: null,
+      round: 1,
+      difficulty: spDifficulty,
+      timeout: null,
+    };
+    state.room = {
+      code: "SOLO",
+      round: 1,
+      players: players.map((p) => ({ ...p, connected: true, isHost: false })),
+    };
+
+    const winnerIdx = Math.floor(Math.random() * players.length);
+    onWheelSpin({
+      order: players.map((p) => ({ id: p.id, nickname: p.nickname })),
+      winnerId: players[winnerIdx].id,
+    });
+    setTimeout(() => {
+      state.sp.currentIndex = winnerIdx;
+      renderSidebar(state.room);
+      spStartTurn();
+    }, 4300);
+  }
+
+  function spAlivePlayers() {
+    return state.sp.order.map((id) => state.sp.players.find((p) => p.id === id)).filter((p) => p.alive);
+  }
+  function spNextAliveIndex(fromIndex) {
+    const n = state.sp.order.length;
+    for (let step = 1; step <= n; step++) {
+      const idx = (fromIndex + step) % n;
+      const p = state.sp.players.find((p) => p.id === state.sp.order[idx]);
+      if (p && p.alive) return idx;
+    }
+    return -1;
+  }
+
+  function spStartTurn() {
+    clearTimeout(state.sp.timeout);
+    const currentId = state.sp.order[state.sp.currentIndex];
+    const current = state.sp.players.find((p) => p.id === currentId);
+    state.turnEndsAt = Date.now() + 15000;
+
+    onTurnChanged({
+      currentPlayerId: currentId,
+      lastWord: state.sp.lastWord,
+      requiredPrefix: state.sp.prefix,
+      turnEndsAt: state.turnEndsAt,
+      round: state.sp.round,
+    });
+
+    state.sp.timeout = setTimeout(() => spHandleTimeout(), 15300);
+
+    if (current.isBot) {
+      setTimeout(() => spBotPlay(current), 1200 + Math.random() * 2200);
+    }
+  }
+
+  function spBotPlay(bot) {
+    if (state.sp.order[state.sp.currentIndex] !== bot.id) return;
+    const word = spPickBotWord(state.sp.prefix, state.sp.used, state.sp.difficulty);
+    if (word) spSubmitWordInternal(bot.id, word);
+    else spHandleTimeout();
+  }
+
+  function spHandleTimeout() {
+    const currentId = state.sp.order[state.sp.currentIndex];
+    const current = state.sp.players.find((p) => p.id === currentId);
+    toast("Timpul a expirat!");
+    spLoseLife(current);
+  }
+
+  function spLoseLife(player) {
+    player.lives -= 1;
+    onLifeLost({ playerId: player.id, livesLeft: player.lives });
+    if (player.lives <= 0) {
+      player.alive = false;
+      onPlayerEliminated({ playerId: player.id });
+    }
+    const survivors = spAlivePlayers();
+    if (survivors.length <= 1) return spEndGame(survivors[0] || null);
+    spAdvanceTurn();
+  }
+
+  function spAdvanceTurn() {
+    const nextIdx = spNextAliveIndex(state.sp.currentIndex);
+    if (nextIdx === -1) return spEndGame(spAlivePlayers()[0] || null);
+    state.sp.currentIndex = nextIdx;
+    state.sp.round += 1;
+    spStartTurn();
+  }
+
+  function spSubmitWord(raw) {
+    spSubmitWordInternal("me", raw);
+  }
+
+  function spSubmitWordInternal(playerId, raw) {
+    const currentId = state.sp.order[state.sp.currentIndex];
+    if (currentId !== playerId) return;
+    const player = state.sp.players.find((p) => p.id === playerId);
+    const result = spValidate(raw, state.sp.prefix, state.sp.used);
+    if (!result.valid) {
+      onWordRejected({ playerId, reason: result.reason });
+      return;
+    }
+    clearTimeout(state.sp.timeout);
+    state.sp.used.add(result.normalized);
+    state.sp.lastWord = result.normalized;
+    state.sp.prefix = result.normalized.slice(-2);
+    player.wordsThisMatch += 1;
+    onWordAccepted({ word: result.normalized });
+    spAdvanceTurn();
+  }
+
+  function spEndGame(winner) {
+    clearTimeout(state.sp.timeout);
+    onGameOver({
+      winnerId: winner ? winner.id : null,
+      winnerNickname: winner ? winner.nickname : null,
+      results: state.sp.players.map((p) => ({
+        id: p.id, nickname: p.nickname, lives: p.lives, alive: p.alive,
+        wordsPlayed: p.wordsThisMatch, won: winner ? p.id === winner.id : false,
+      })),
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // LEADERBOARD / PROFILE / SETTINGS
+  // ------------------------------------------------------------------
+  async function loadLeaderboard() {
+    const root = document.getElementById("leaderboard-list");
+    root.innerHTML = `<p class="muted" style="padding:16px">Se încarcă...</p>`;
+    try {
+      const res = await fetch("/api/leaderboard");
+      const data = await res.json();
+      if (!data.leaderboard.length) {
+        root.innerHTML = `<p class="muted" style="padding:16px">Niciun rezultat încă. Joacă o partidă autentificat cu email!</p>`;
+        return;
+      }
+      root.innerHTML = "";
+      const medals = ["🥇", "🥈", "🥉"];
+      data.leaderboard.forEach((p, i) => {
+        const row = document.createElement("div");
+        row.className = "lb-row" + (i < 3 ? " top" + (i + 1) : "");
+        row.innerHTML = `
+          <span class="lb-rank">${i < 3 ? medals[i] : "#" + (i + 1)}</span>
+          <span class="lb-name">${escapeHtml(p.nickname)}</span>
+          <span class="lb-stat">${p.wins}V / ${p.matches}M</span>
+          <span class="lb-stat">${p.winRate}%</span>
+          <span class="lb-stat"><b>${p.score}</b> pct</span>
+        `;
+        root.appendChild(row);
+      });
+    } catch (e) {
+      root.innerHTML = `<p class="muted" style="padding:16px">Nu s-a putut încărca leaderboard-ul.</p>`;
+    }
+  }
+
+  async function loadProfile() {
+    const root = document.getElementById("profile-content");
+    if (!state.email) {
+      root.innerHTML = `<p class="muted">Joci ca invitat — conectează-te cu un email din ecranul de start pentru a-ți salva statisticile.</p>`;
+      return;
+    }
+    root.innerHTML = `<p class="muted">Se încarcă...</p>`;
+    try {
+      const res = await fetch("/api/profile?email=" + encodeURIComponent(state.email));
+      if (!res.ok) {
+        root.innerHTML = `<p class="muted">Nu ai jucat încă nicio partidă autentificat. Joacă una și revino aici!</p>`;
+        return;
+      }
+      const p = await res.json();
+      root.innerHTML = `
+        <div class="profile-stat-row"><span>Nickname</span><b>${escapeHtml(p.nickname)}</b></div>
+        <div class="profile-stat-row"><span>Meciuri jucate</span><b>${p.matches}</b></div>
+        <div class="profile-stat-row"><span>Victorii</span><b>${p.wins}</b></div>
+        <div class="profile-stat-row"><span>Înfrângeri</span><b>${p.losses}</b></div>
+        <div class="profile-stat-row"><span>Win rate</span><b>${p.winRate}%</b></div>
+        <div class="profile-stat-row"><span>Cel mai lung șir de victorii</span><b>${p.bestStreak}</b></div>
+        <div class="profile-stat-row"><span>Cuvinte jucate total</span><b>${p.wordsPlayed}</b></div>
+        <div class="profile-stat-row"><span>Punctaj total</span><b>${p.score}</b></div>
+      `;
+    } catch (e) {
+      root.innerHTML = `<p class="muted">Eroare la încărcarea profilului.</p>`;
+    }
+  }
+
+  document.getElementById("setting-sound").checked = state.settings.sound;
+  document.getElementById("setting-anim").checked = state.settings.anim;
+  document.getElementById("setting-sound").addEventListener("change", (e) => {
+    state.settings.sound = e.target.checked;
+    localStorage.setItem("fazan_sound", e.target.checked ? "1" : "0");
+  });
+  document.getElementById("setting-anim").addEventListener("change", (e) => {
+    state.settings.anim = e.target.checked;
+    localStorage.setItem("fazan_anim", e.target.checked ? "1" : "0");
+  });
+
+  // ------------------------------------------------------------------
+  // utilitare
+  // ------------------------------------------------------------------
+  function escapeHtml(str) {
+    return (str || "").toString()
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  // preincarca dictionarul pentru singleplayer instant
+  ensureDictionary();
+})();
