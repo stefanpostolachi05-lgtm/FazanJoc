@@ -88,14 +88,17 @@
     if (!state.settings.sound) return;
     ensureAudio();
     if (!audioCtx) return;
+    const volumeFactor = (typeof state.settings.volume === "number" ? state.settings.volume : 70) / 100;
+    const effectiveVol = vol * volumeFactor;
+    if (effectiveVol <= 0) return;
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.type = type;
     osc.frequency.value = freq;
-    gain.gain.value = vol;
+    gain.gain.value = effectiveVol;
     osc.connect(gain).connect(audioCtx.destination);
     const now = audioCtx.currentTime;
-    gain.gain.setValueAtTime(vol, now);
+    gain.gain.setValueAtTime(effectiveVol, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
     osc.start(now);
     osc.stop(now + duration);
@@ -236,7 +239,11 @@
     const nickEl = document.getElementById("menu-nickname");
     const logoutBtn = document.getElementById("btn-logout");
     nickEl.textContent = (state.isGuest ? "👤 " : "👋 ") + state.nickname;
-    logoutBtn.classList.toggle("hidden", state.isGuest);
+    // BUG FIX: butonul era complet ascuns pentru guests, deci nu aveau nicio
+    // cale sa ajunga inapoi la ecranul de login. Acum ramane mereu vizibil,
+    // doar textul si actiunea se schimba dupa starea contului.
+    logoutBtn.classList.remove("hidden");
+    logoutBtn.textContent = state.isGuest ? "Conectează-te / Creează cont" : "Ieși din cont";
 
     const lock = document.getElementById("menu-lock-multiplayer");
     const desc = document.getElementById("menu-desc-multiplayer");
@@ -336,13 +343,28 @@
     resetWelcomeForms();
   });
 
-  // Daca exista un token salvat din vizita anterioara, propunem reluarea sesiunii
-  // (verificarea reala tot se face pe server, la conectarea socket-ului).
+  // Daca exista un token salvat din vizita anterioara, reluam automat
+  // sesiunea, fara sa mai cerem un click de confirmare - verificarea reala
+  // se face pe server, la conectarea socket-ului (set_identity + ack), iar
+  // daca token-ul a expirat intre timp, cade automat inapoi la ecranul de
+  // login (vezi handler-ul "connect" din connectSocket).
   (function checkSavedSession() {
-    if (state.token && state.email && state.nickname) {
-      welcomeBackName.textContent = state.nickname;
-      welcomeBack.classList.remove("hidden");
-      authFormsWrap.classList.add("hidden");
+    try {
+      if (state.token && state.email && state.nickname) {
+        authFormsWrap.classList.add("hidden");
+        welcomeBackName.textContent = state.nickname;
+        welcomeBack.classList.remove("hidden");
+        welcomeBack.querySelector(".muted").textContent = "Te reconectăm automat...";
+        btnContinueSession.classList.add("hidden");
+        btnSwitchAccount.classList.add("hidden");
+        enterAsAccount({ token: state.token, profile: { email: state.email, nickname: state.nickname } });
+      }
+    } catch (err) {
+      // Orice eroare aici NU trebuie sa blocheze restul paginii (butoane,
+      // setari etc.) - revenim la ecranul normal de login si continuam.
+      console.error("Eroare la reluarea sesiunii salvate:", err);
+      localStorage.removeItem("fazan_token");
+      resetWelcomeForms();
     }
   })();
 
@@ -372,12 +394,64 @@
   // ------------------------------------------------------------------
   function connectSocket() {
     if (state.socket) return;
-    state.socket = io();
-    const s = state.socket;
+    if (typeof io === "undefined") {
+      // socket.io.js n-a reusit sa se incarce (server Render abia trezit
+      // din somn / hiccup de retea). Reincercam sa il reincarcam activ,
+      // in loc sa blocam tot restul scriptului cu o eroare aici.
+      window.__fazanSocketRetries = (window.__fazanSocketRetries || 0) + 1;
+      if (window.__fazanSocketRetries <= 6) {
+        if (window.__fazanSocketRetries % 2 === 0) {
+          const retryScript = document.createElement("script");
+          retryScript.src = "/socket.io/socket.io.js?retry=" + window.__fazanSocketRetries;
+          document.head.appendChild(retryScript);
+        }
+        setTimeout(connectSocket, 700);
+      } else {
+        toast("Nu ne putem conecta la server. Reîmprospătează pagina.");
+      }
+      return;
+    }
+    let s;
+    try {
+      s = io();
+    } catch (err) {
+      console.error("Conectare socket esuata:", err);
+      toast("Nu ne putem conecta la server. Reîncearcă în câteva secunde.");
+      return;
+    }
+    state.socket = s;
+
+    // Plasa de siguranta: daca serverul Render tocmai s-a trezit din somn,
+    // prima conexiune poate dura pana la ~50s. Daca nu s-a conectat deloc
+    // in acest timp si incercam sa reluam o sesiune salvata, nu lasam
+    // utilizatorul blocat pe "Te reconectam automat..." la infinit.
+    const connectSafetyTimer = setTimeout(() => {
+      if (!s.connected && state.token) {
+        toast("Conexiunea durează mai mult ca de obicei — serverul poate fi în curs de pornire.");
+      }
+    }, 8000);
 
     s.on("connect", () => {
+      clearTimeout(connectSafetyTimer);
       state.myId = s.id;
-      s.emit("set_identity", { nickname: state.nickname, email: state.email || null, token: state.token || null });
+      s.emit("set_identity", { nickname: state.nickname, email: state.email || null, token: state.token || null }, (ack) => {
+        if (!ack) return;
+        if (state.token && !ack.authenticated) {
+          // Token-ul salvat a expirat sau nu mai e valid - curatam sesiunea
+          // si il trimitem inapoi la login, cu un mesaj clar (nu il lasam
+          // "conectat" doar aparent, ca guest, fara sa stie de ce).
+          localStorage.removeItem("fazan_token");
+          localStorage.removeItem("fazan_email");
+          state.token = ""; state.email = ""; state.isGuest = true;
+          toast("Sesiunea a expirat. Te rugăm să te conectezi din nou.");
+          showScreen("welcome");
+          resetWelcomeForms();
+          return;
+        }
+        state.isGuest = !ack.authenticated;
+        state.nickname = ack.nickname || state.nickname;
+        renderMenuIdentity();
+      });
     });
 
     // reconectare: id nou dupa disconnect
@@ -401,6 +475,9 @@
     });
     s.on("life_lost", (data) => onLifeLost(data));
     s.on("player_eliminated", (data) => onPlayerEliminated(data));
+    s.on("player_typing", (data) => {
+      if (state.settings.typingPreview) showTypingPreview(data.playerId, data.text);
+    });
     s.on("player_disconnected", (data) => onPlayerDisconnected(data));
     s.on("game_over", (data) => onGameOver(data));
     s.on("play_again_status", (data) => {
@@ -634,6 +711,7 @@
     wordError.classList.add("hidden");
     inputWord.value = "";
     inputWord.disabled = !isMe;
+    clearTypingPreview();
     if (isMe) { inputWord.focus(); sfx.turn(); }
 
     state.turnEndsAt = data.turnEndsAt;
@@ -645,6 +723,31 @@
     const p = state.room.players.find((x) => x.id === id);
     return p ? p.nickname : "?";
   }
+
+  // ------------------------------------------------------------------
+  // TYPING PREVIEW — arata live ce scrie jucatorul curent (adversar in
+  // multiplayer, sau botul in singleplayer), daca setarea e activata.
+  // ------------------------------------------------------------------
+  const typingPreviewEl = document.getElementById("typing-preview");
+  function showTypingPreview(playerId, text) {
+    if (playerId === state.myId && !state.sp) return; // nu ne aratam propriul text inapoi
+    const name = state.sp ? "🤖 Bot" : playerNickname(playerId);
+    if (!text) { clearTypingPreview(); return; }
+    typingPreviewEl.textContent = `${name} scrie: ${text}`;
+    typingPreviewEl.classList.remove("hidden");
+  }
+  function clearTypingPreview() {
+    typingPreviewEl.textContent = "";
+    typingPreviewEl.classList.add("hidden");
+  }
+
+  let typingThrottle = null;
+  inputWord.addEventListener("input", () => {
+    if (state.sp || !state.socket || inputWord.disabled) return;
+    if (typingThrottle) return;
+    typingThrottle = setTimeout(() => { typingThrottle = null; }, 150);
+    state.socket.emit("typing", { text: inputWord.value });
+  });
 
   function startTimerLoop() {
     clearInterval(state.timerInterval);
@@ -673,6 +776,7 @@
       spSubmitWord(word);
       return;
     }
+    state.socket.emit("typing", { text: "" });
     state.socket.emit("submit_word", { word });
     inputWord.disabled = true;
   });
@@ -720,11 +824,31 @@
 
   function onGameOver(data) {
     clearInterval(state.timerInterval);
+    clearTypingPreview();
     showScreen("end");
     document.getElementById("end-winner-name").textContent = data.winnerNickname || "Egalitate";
     document.querySelector(".end-sub").textContent = data.winnerId ? "a câștigat partida!" : "Partida s-a încheiat.";
     const isWinner = data.winnerId === state.myId;
     if (isWinner) { sfx.win(); launchConfetti(); }
+
+    const streakEl = document.getElementById("end-streak");
+    streakEl.classList.add("hidden");
+    if (state.sp) {
+      if (data.spStreak > 1) {
+        streakEl.textContent = `🔥 ${data.spStreak} victorii la rând!`;
+        streakEl.classList.remove("hidden");
+      }
+    } else if (isWinner && !state.isGuest && state.email) {
+      fetch("/api/profile?email=" + encodeURIComponent(state.email))
+        .then((r) => (r.ok ? r.json() : null))
+        .then((p) => {
+          if (p && p.currentStreak > 1) {
+            streakEl.textContent = `🔥 ${p.currentStreak} victorii la rând!`;
+            streakEl.classList.remove("hidden");
+          }
+        })
+        .catch(() => {});
+    }
 
     const results = document.getElementById("end-results");
     results.innerHTML = "";
@@ -748,6 +872,25 @@
     if (state.socket) state.socket.emit("leave_room");
     state.sp = null;
     showScreen("menu");
+  });
+
+  // ------------------------------------------------------------------
+  // QUIT DIN MECI — funcționează atât în multiplayer cât și singleplayer
+  // ------------------------------------------------------------------
+  document.getElementById("btn-quit-match").addEventListener("click", () => {
+    if (!confirm("Sigur vrei să ieși din meci? Vei fi eliminat din partida curentă.")) return;
+    clearInterval(state.timerInterval);
+    clearTypingPreview();
+    if (state.sp) {
+      clearTimeout(state.sp.timeout);
+      state.sp = null;
+      showScreen("menu");
+      toast("Ai ieșit din meci.");
+      return;
+    }
+    if (state.socket) state.socket.emit("quit_match");
+    showScreen("menu");
+    toast("Ai ieșit din meci.");
   });
 
   // ------------------------------------------------------------------
@@ -782,10 +925,14 @@
   }
 
   let PREFIX_MAP = new Map();
+  // Acelasi fix ca in data/dictionary.js: eliminam diacriticele la
+  // comparatie, ca "măgar" si "magar" sa se potriveasca amandoua cu
+  // intrarea din dictionar (care e scrisa fara diacritice).
   function normalizeWord(w) {
     return (w || "").toString().trim().toLowerCase()
-      .replace(/ş/g, "ș").replace(/ţ/g, "ț")
-      .replace(/[^a-zăâîșț]/g, "");
+      .replace(/[ăâ]/g, "a").replace(/î/g, "i")
+      .replace(/[șş]/g, "s").replace(/[țţ]/g, "t")
+      .replace(/[^a-z]/g, "");
   }
   function buildPrefixMap() {
     PREFIX_MAP = new Map();
@@ -890,15 +1037,35 @@
     state.sp.timeout = setTimeout(() => spHandleTimeout(), 15300);
 
     if (current.isBot) {
-      setTimeout(() => spBotPlay(current), 1200 + Math.random() * 2200);
+      // Bot "se gandeste" putin inainte sa inceapa (nu raspunde instant),
+      // apoi scrie vizibil litera cu litera - tot procesul dureaza sub 3s.
+      const thinkDelay = 300 + Math.random() * 500;
+      setTimeout(() => spBotStartTyping(current), thinkDelay);
     }
   }
 
-  function spBotPlay(bot) {
+  function spBotStartTyping(bot) {
     if (state.sp.order[state.sp.currentIndex] !== bot.id) return;
     const word = spPickBotWord(state.sp.prefix, state.sp.used, state.sp.difficulty);
-    if (word) spSubmitWordInternal(bot.id, word);
-    else spHandleTimeout();
+    if (!word) { spHandleTimeout(); return; }
+
+    const totalTypingMs = Math.min(1400, 110 * word.length);
+    const perLetter = totalTypingMs / word.length;
+    let shown = "";
+    let i = 0;
+    const typer = setInterval(() => {
+      if (state.sp.order[state.sp.currentIndex] !== bot.id) { clearInterval(typer); return; }
+      shown += word[i];
+      i++;
+      showTypingPreview(bot.id, shown);
+      if (i >= word.length) {
+        clearInterval(typer);
+        setTimeout(() => {
+          clearTypingPreview();
+          if (state.sp.order[state.sp.currentIndex] === bot.id) spSubmitWordInternal(bot.id, word);
+        }, 150);
+      }
+    }, Math.max(40, perLetter));
   }
 
   function spHandleTimeout() {
@@ -952,9 +1119,14 @@
 
   function spEndGame(winner) {
     clearTimeout(state.sp.timeout);
+    const iWon = winner && winner.id === "me";
+    const prevStreak = parseInt(localStorage.getItem("fazan_sp_streak") || "0", 10);
+    const newStreak = iWon ? prevStreak + 1 : 0;
+    localStorage.setItem("fazan_sp_streak", String(newStreak));
     onGameOver({
       winnerId: winner ? winner.id : null,
       winnerNickname: winner ? winner.nickname : null,
+      spStreak: iWon ? newStreak : 0,
       results: state.sp.players.map((p) => ({
         id: p.id, nickname: p.nickname, lives: p.lives, alive: p.alive,
         wordsPlayed: p.wordsThisMatch, won: winner ? p.id === winner.id : false,
@@ -1033,6 +1205,46 @@
     state.settings.anim = e.target.checked;
     localStorage.setItem("fazan_anim", e.target.checked ? "1" : "0");
   });
+
+  // toggle: arata live ce scrie adversarul/botul
+  state.settings.typingPreview = localStorage.getItem("fazan_typing_preview") !== "0";
+  const settingTyping = document.getElementById("setting-typing");
+  settingTyping.checked = state.settings.typingPreview;
+  settingTyping.addEventListener("change", (e) => {
+    state.settings.typingPreview = e.target.checked;
+    localStorage.setItem("fazan_typing_preview", e.target.checked ? "1" : "0");
+    if (!e.target.checked) clearTypingPreview();
+  });
+
+  // volum (afecteaza toate sunetele generate cu Web Audio API)
+  state.settings.volume = parseInt(localStorage.getItem("fazan_volume") || "70", 10);
+  const settingVolume = document.getElementById("setting-volume");
+  settingVolume.value = state.settings.volume;
+  settingVolume.addEventListener("input", (e) => {
+    state.settings.volume = parseInt(e.target.value, 10);
+    localStorage.setItem("fazan_volume", e.target.value);
+  });
+
+  // tema de culoare accent (pur vizual - schimba gradientul principal)
+  const THEME_COLORS = {
+    violet: { c1: "#7C5CFF", c2: "#5B8CFF" },
+    teal: { c1: "#3EDBB5", c2: "#2FB89A" },
+    gold: { c1: "#FFB454", c2: "#FF8A54" },
+    pink: { c1: "#FF6B9D", c2: "#FF5C7A" },
+  };
+  function applyTheme(name) {
+    const t = THEME_COLORS[name] || THEME_COLORS.violet;
+    document.documentElement.style.setProperty("--violet", t.c1);
+    document.documentElement.style.setProperty("--violet-2", t.c2);
+    document.querySelectorAll(".theme-swatch").forEach((el) => {
+      el.classList.toggle("active", el.dataset.theme === name);
+    });
+    localStorage.setItem("fazan_theme", name);
+  }
+  document.querySelectorAll(".theme-swatch").forEach((el) => {
+    el.addEventListener("click", () => applyTheme(el.dataset.theme));
+  });
+  applyTheme(localStorage.getItem("fazan_theme") || "violet");
 
   // ------------------------------------------------------------------
   // utilitare

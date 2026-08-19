@@ -101,7 +101,7 @@ h1, h2, h3 { font-family: var(--font-display); margin: 0; }
 /* ---- forms ---- */
 .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; text-align: left; }
 .field label { font-size: 12.5px; color: var(--muted); font-weight: 600; }
-.field input, input[type=text], input[type=email] {
+.field input, input:not([type=checkbox]):not([type=radio]) {
   background: rgba(255,255,255,0.06);
   border: 1px solid var(--glass-border);
   color: var(--text);
@@ -112,7 +112,7 @@ h1, h2, h3 { font-family: var(--font-display); margin: 0; }
   outline: none;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
-.field input:focus, input:focus { border-color: var(--violet); background: rgba(124,92,255,0.08); }
+.field input:focus, input:not([type=checkbox]):not([type=radio]):focus { border-color: var(--violet); background: rgba(124,92,255,0.08); }
 .hint { font-size: 12px; color: var(--muted); margin: 2px 0 0; }
 .checkbox-row { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); margin-bottom: 14px; }
 
@@ -127,6 +127,13 @@ h1, h2, h3 { font-family: var(--font-display); margin: 0; }
 .welcome-orb-1 { width: 340px; height: 340px; background: rgba(124,92,255,0.35); top: -80px; left: -80px; }
 .welcome-orb-2 { width: 300px; height: 300px; background: rgba(62,219,181,0.28); bottom: -100px; right: -60px; animation-delay: 1.5s; }
 @keyframes orbDrift { from { transform: translate(0,0) scale(1); } to { transform: translate(30px,-20px) scale(1.12); } }
+.ambient-orb {
+  position: absolute; border-radius: 50%; filter: blur(70px); pointer-events: none; z-index: 0;
+  animation: orbDrift 9s ease-in-out infinite alternate;
+}
+.ambient-orb.o1 { width: 280px; height: 280px; background: rgba(124,92,255,0.22); top: -60px; right: -60px; }
+.ambient-orb.o2 { width: 260px; height: 260px; background: rgba(255,180,84,0.18); bottom: -80px; left: -60px; animation-delay: 1.2s; }
+#screen-lobby, #screen-end { overflow: hidden; }
 .welcome-card { max-width: 420px; width: 100%; padding: 36px 30px; text-align: center; position: relative; z-index: 1; }
 .brand { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 6px; }
 .brand-mark { filter: drop-shadow(0 0 18px rgba(124,92,255,0.5)); animation: float 4s ease-in-out infinite; }
@@ -309,7 +316,7 @@ h1, h2, h3 { font-family: var(--font-display); margin: 0; }
   padding: 4px 4px 18px;
 }
 .brand-mini { font-family: var(--font-display); font-weight: 700; letter-spacing: 2px; color: var(--violet-2); }
-.game-top-left { display: flex; align-items: center; gap: 10px; }
+.game-top-right { display: flex; align-items: center; gap: 10px; }
 
 .game-layout {
   width: 100%; max-width: 1000px; display: grid; grid-template-columns: 240px 1fr; gap: 20px;
@@ -353,11 +360,25 @@ h1, h2, h3 { font-family: var(--font-display); margin: 0; }
 .word-form { display: flex; gap: 10px; width: 100%; max-width: 420px; }
 .word-form input {
   flex: 1; font-size: 18px; text-align: center; letter-spacing: 1px;
+  color: var(--text); /* explicit, ca sa nu depinda de selectorul input[type=text] */
+  background: rgba(255,255,255,0.07); border: 1.5px solid var(--glass-border);
 }
+.word-form input:focus { border-color: var(--violet); background: rgba(124,92,255,0.1); }
+.word-form input::placeholder { color: var(--muted); }
+.word-form input:disabled { opacity: 0.5; }
 .word-error {
   color: var(--red); font-size: 13.5px; font-weight: 600; margin-top: 12px;
   animation: shake 0.4s ease;
 }
+
+/* ---- typing preview (live) ---- */
+.typing-preview {
+  min-height: 20px; font-family: var(--font-mono); font-size: 14px;
+  color: var(--teal); margin: -8px 0 14px; letter-spacing: 0.5px;
+}
+.typing-preview.hidden { visibility: hidden; }
+.typing-preview .cursor { animation: blink 0.9s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
 
 /* ==========================================================================
    END SCREEN
@@ -374,6 +395,14 @@ h1, h2, h3 { font-family: var(--font-display); margin: 0; }
 }
 .end-result-row.won { border: 1px solid var(--gold); }
 .end-actions { display: flex; flex-direction: column; gap: 10px; }
+.end-streak {
+  display: inline-block; margin: 0 auto 16px; padding: 8px 18px; border-radius: 999px;
+  background: linear-gradient(135deg, rgba(255,180,84,0.22), rgba(255,92,122,0.18));
+  border: 1px solid rgba(255,180,84,0.4); font-weight: 700; font-size: 14px;
+  animation: streakPop 0.5s cubic-bezier(0.34,1.56,0.64,1);
+}
+.end-streak.hidden { display: none; }
+@keyframes streakPop { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
 /* ==========================================================================
    LEADERBOARD
@@ -395,7 +424,16 @@ h1, h2, h3 { font-family: var(--font-display); margin: 0; }
 .profile-stat-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--glass-border); font-size: 14px; }
 .profile-stat-row:last-child { border-bottom: none; }
 .switch-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--glass-border); font-size: 15px; }
-.switch-row input { width: 20px; height: 20px; }
+.switch-row input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--violet); }
+.switch-row input[type=range] { width: 140px; accent-color: var(--violet); }
+.settings-divider { height: 1px; background: var(--glass-border); margin: 18px 0; }
+.theme-swatches { display: flex; gap: 12px; }
+.theme-swatch {
+  width: 40px; height: 40px; border-radius: 50%; border: 2px solid transparent; cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.theme-swatch:hover { transform: scale(1.1); }
+.theme-swatch.active { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,0.15); }
 
 /* ==========================================================================
    TOASTS / CONFETTI

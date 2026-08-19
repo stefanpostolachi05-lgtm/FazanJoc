@@ -141,22 +141,131 @@ const RAW_WORDS = [
   "metal","plastic","sticla","hartie","panza","piele","lana","bumbac",
   "matase","fir","ata","nod","panglica","cutie","sac","borcan","sticla",
   "vas","cos","valiza","umbrela","lanterna","baterie","cablu","priza",
-  "intrerupator","bec","becuri","becul"
+  "intrerupator","bec","becuri","becul",
+  // ============================================================
+  // EXTINDERE — plural la substantivele deja listate (foarte
+  // frecvente in vorbirea normala, lipseau complet inainte)
+  // ============================================================
+  "pisici","caini","lupi","ursi","vulpi","iepuri","cerbi","capre","oi","porci",
+  "vaci","cai","magari","gaini","cocosi","rate","gaste","curcani","albine","furnici",
+  "fluturi","broaste","serpi","soparle","pesti","rechini","balene","delfini","elefanti",
+  "girafe","zebre","lei","tigri","maimute","gorile","canguri","pinguini","vulturi",
+  "soimi","bufnite","ciori","vrabii","randunele","berze","pelicani","crocodili",
+  "testoase","aricei","veverite","hamsteri","sobolani","insecte","paianjeni",
+  "scorpioni","viespi","greieri","libelule","gandaci","melci","raci","crabi",
+  "stridii","caracatite","calmari","meduze","foci","morse",
+  "munti","paduri","campuri","dealuri","vai","rauri","lacuri","mari","oceane",
+  "insule","plaje","deserturi","stanci","pesteri","izvoare","cascade","copaci",
+  "frunze","radacini","ramuri","flori","plante","seminte","fructe","legume",
+  "gradini","livezi","meri","peri","piersici","ciresi","visini","pruni","caisi",
+  "portocali","lamai","banane","pepeni","capsuni","afine","nuci","alune","migdale",
+  "castane","ciuperci","stejari","brazi","salcii","plopi","fagi","tei",
+  "case","apartamente","camere","bucatarii","bai","dormitoare","usi","ferestre",
+  "pereti","scari","balcoane","acoperisuri","garduri","curti","gradini","garaje",
+  "mobile","paturi","dulapuri","scaune","canapele","birouri","lampi","oglinzi",
+  "covoare","perne","paturi","prosoape","telefoane","calculatoare","carti","caiete",
+  "pixuri","creioane","rucsacuri","genti","portofele","chei","umbrele","ochelari",
+  "palarii","fulare","manusi","haine","tricouri","pantaloni","fuste","rochii",
+  "camasi","pulovere","pantofi","ghete","sandale","ciorapi","inele","cercei",
+  "bratari","masini","autobuze","trenuri","avioane","vapoare","biciclete",
+  "camioane","drumuri","strazi","poduri","tuneluri","parcari","scoli","licee",
+  "facultati","profesori","elevi","studenti","clase","teme","examene","note",
+  "birouri","fabrici","ateliere","magazine","spitale","farmacii","restaurante",
+  "cafenele","biblioteci","muzee","teatre","stadioane","parcuri","idei","ganduri",
+  "vise","dorinte","sperante","secrete","povesti","cantece","culori","numere",
+  "litere","cuvinte","propozitii","fraze","carti","ziare","mesaje","aplicatii",
+  "programe","roboti","unelte","materiale",
+  // ============================================================
+  // EXTINDERE — conjugari uzuale (prezent) ale verbelor deja listate,
+  // pentru ca jocul sa accepte forme naturale, nu doar infinitivul
+  // ============================================================
+  "alerg","alergi","alearga","alergam","alergati", "merg","mergi","merge","mergem","mergeti",
+  "stau","stai","sta","stam","stati", "vin","vii","vine","venim","veniti",
+  "plec","pleci","pleaca","plecam","plecati", "intru","intri","intra","intram","intrati",
+  "ies","iesi","iese","iesim","iesiti", "urc","urci","urca","urcam","urcati",
+  "cobor","cobori","coboara","coboram","coborati", "sar","sari","sare","sarim","sariti",
+  "cad","cazi","cade","cadem","cadeti", "ridic","ridici","ridica","ridicam","ridicati",
+  "aduc","aduci","aduce","aducem","aduceti", "duc","duci","duce","ducem","duceti",
+  "iau","iei","ia","luam","luati", "pun","pui","pune","punem","puneti",
+  "scot","scoti","scoate","scoatem","scoateti", "deschid","deschizi","deschide","deschidem","deschideti",
+  "inchid","inchizi","inchide","inchidem","inchideti", "spun","spui","spune","spunem","spuneti",
+  "vorbesc","vorbesti","vorbeste","vorbim","vorbiti", "ascult","asculti","asculta","ascultam","ascultati",
+  "aud","auzi","aude","auzim","auziti", "vad","vezi","vede","vedem","vedeti",
+  "privesc","privesti","priveste","privim","priviti", "gasesc","gasesti","gaseste","gasim","gasiti",
+  "pierd","pierzi","pierde","pierdem","pierdeti", "castig","castigi","castiga","castigam","castigati",
+  "joc","joci","joaca","jucam","jucati", "cant","canti","canta","cantam","cantati",
+  "dansez","dansezi","danseaza","dansam","dansati", "desenez","desenezi","deseneaza","desenam","desenati",
+  "scriu","scrii","scrie","scriem","scrieti", "citesc","citesti","citeste","citim","cititi",
+  "invat","inveti","invata","invatam","invatati", "predau","predai","preda","predam","predati",
+  "intreb","intrebi","intreaba","intrebam","intrebati", "raspund","raspunzi","raspunde","raspundem","raspundeti",
+  "gandesc","gandesti","gandeste","gandim","ganditi", "visez","visezi","viseaza","visam","visati",
+  "dorm","dormi","doarme","dormim","dormiti", "trezesc","trezesti","trezeste","trezim","treziti",
+  "spal","speli","spala","spalam","spalati", "curat","curati","curata","curatam","curatati",
+  "gatesc","gatesti","gateste","gatim","gatiti", "mananc","mananci","mananca","mancam","mancati",
+  "beau","bei","bea","bem","beti", "respir","respiri","respira","respiram","respirati",
+  "zambesc","zambesti","zambeste","zambim","zambiti", "rad","razi","rade","radem","radeti",
+  "plang","plangi","plange","plangem","plangeti", "strig","strigi","striga","strigam","strigati",
+  "construiesc","construiesti","construieste","construim","construiti", "repar","repari","repara","reparam","reparati",
+  "vand","vinzi","vinde","vindem","vindeti", "cumpar","cumperi","cumpara","cumparam","cumparati",
+  "platesc","platesti","plateste","platim","platiti", "astept","astepti","asteapta","asteptam","asteptati",
+  "caut","cauti","cauta","cautam","cautati", "incep","incepi","incepe","incepem","incepeti",
+  "termin","termini","termina","terminam","terminati", "continui","continua","continuam","continuati",
+  "opresc","opresti","opreste","oprim","opriti", "schimb","schimbi","schimba","schimbam","schimbati",
+  "ajut","ajuti","ajuta","ajutam","ajutati", "salvez","salvezi","salveaza","salvam","salvati",
+  "aleg","alegi","alege","alegem","alegeti", "decid","decizi","decide","decidem","decideti",
+  "incerc","incerci","incearca","incercam","incercati", "reusesc","reusesti","reuseste","reusim","reusiti",
+  "studiez","studiezi","studiaza","studiam","studiati", "descopar","descoperi","descopera","descoperim","descoperiti",
+  "inventez","inventezi","inventeaza","inventam","inventati", "creez","creezi","creeaza","creeam","creati",
+  "imaginez","imaginezi","imagineaza","imaginam","imaginati", "planuiesc","planuiesti","planuieste","planuim","planuiti",
+  "organizez","organizezi","organizeaza","organizam","organizati", "conduc","conduci","conduce","conducem","conduceti",
+  "zbor","zbori","zboara","zburam","zburati", "inot","inoti","inoata","inotam","inotati",
+  "impins","impingi","impinge","impingem","impingeti", "trag","tragi","trage","tragem","trageti",
+  "arunc","arunci","arunca","aruncam","aruncati", "prind","prinzi","prinde","prindem","prindeti",
+  "lovesc","lovesti","loveste","lovim","loviti", "ating","atingi","atinge","atingem","atingeti",
+  "apas","apesi","apasa","apasam","apasati", "tin","tii","tine","tinem","tineti",
+  "masor","masori","masoara","masuram","masurati", "sunt","esti","este","suntem","sunteti",
+  "am","ai","are","avem","aveti", "fac","faci","face","facem","faceti",
+  "stiu","stii","stie","stim","stiti", "pot","poti","poate","putem","puteti",
+  "vreau","vrei","vrea","vrem","vreti",
+  // ============================================================
+  // EXTINDERE — pronume, numerale, adverbe, cuvinte de legatura
+  // (extrem de comune in vorbirea zilnica, lipseau complet)
+  // ============================================================
+  "eu","tu","noi","voi","ele","mie","tie","noua","voua","lor","acesta","aceasta",
+  "acestia","acestea","acela","aceea","aceia","acelea","cineva","nimeni","ceva",
+  "nimic","tot","toate","toti","fiecare","altul","alta","altii","altele",
+  "unu","doi","trei","patru","cinci","sase","sapte","opt","noua","zece",
+  "unsprezece","doisprezece","douazeci","treizeci","patruzeci","cincizeci",
+  "suta","mia","milion","miliard","prima","primul","ultima","ultimul",
+  "bine","rau","repede","incet","mereu","niciodata","uneori","adesea",
+  "foarte","prea","destul","aproape","departe","aici","acolo","azi","ieri",
+  "maine","acum","atunci","curand","tarziu","devreme","poate","desigur",
+  "sigur","cumva","undeva","oriunde","oricand","oricum","oricine","orice",
+  "dupa","inainte","langa","peste","intre","fara","pentru","asupra",
+  "impotriva","conform","datorita","gratie","despre","printre","catre",
+  "spre","dedesubt","deasupra","inauntru","afara","inapoi","imprejur",
+  "insa","totusi","deci","astfel","precum","daca","cand","unde","cum",
+  "deoarece","fiindca","pentruca","incat","desi","chiar","macar","numai",
+  "doar","abia","tocmai","iarasi","impreuna","separat",
 ];
 
-// Normalizeaza un cuvant: elimina spatii, litere mici, unifica variantele
-// de diacritice romanesti (virgula vs sedila) intr-o forma canonica.
+// Normalizeaza un cuvant: elimina spatii, litere mici, si elimina
+// diacriticele romanesti pentru COMPARATIE (ă/â -> a, î -> i, ș/ş -> s,
+// ț/ţ -> t). Asta e fix-ul principal pentru bug-ul unde 95% din cuvinte
+// erau respinse: dictionarul de mai sus e scris FARA diacritice, dar
+// jucatorii scriu firesc CU diacritice ("măgar", nu "magar") - fara aceasta
+// normalizare, cele doua forme nu se potriveau niciodata.
 function normalizeWord(word) {
   if (!word) return "";
   return word
     .toString()
     .trim()
     .toLowerCase()
-    .replace(/\u0219/g, "\u0219") // ș (comma below) canonical
-    .replace(/\u015f/g, "\u0219") // ş (cedilla) -> ș
-    .replace(/\u021b/g, "\u021b") // ț (comma below) canonical
-    .replace(/\u0163/g, "\u021b") // ţ (cedilla) -> ț
-    .replace(/[^a-zăâîșț]/g, ""); // pastreaza doar litere romanesti
+    .replace(/[ăâ]/g, "a")
+    .replace(/î/g, "i")
+    .replace(/[șş]/g, "s")
+    .replace(/[țţ]/g, "t")
+    .replace(/[^a-z]/g, ""); // pastreaza doar litere latine, dupa normalizare
 }
 
 const WORD_SET = new Set(RAW_WORDS.map(normalizeWord).filter(Boolean));

@@ -172,6 +172,8 @@
 
 <!-- ============ LOBBY ============ -->
 <section id="screen-lobby" class="screen">
+  <div class="ambient-orb o1"></div>
+  <div class="ambient-orb o2"></div>
   <header class="subbar">
     <button class="back-btn" data-action="leave-room">← Ieși</button>
     <h2>Lobby</h2>
@@ -208,6 +210,7 @@
     </div>
     <div class="game-top-right">
       <span id="game-round" class="pill pill-sm">Runda 1</span>
+      <button id="btn-quit-match" class="icon-btn" title="Ieși din meci">🚪 Ieși</button>
     </div>
   </header>
 
@@ -229,13 +232,15 @@
         <h1 id="prefix-display">—</h1>
       </div>
 
+      <p id="typing-preview" class="typing-preview hidden"></p>
+
       <div class="timer-wrap">
         <div class="timer-bar-track"><div id="timer-bar" class="timer-bar-fill"></div></div>
         <span id="timer-text" class="timer-text">15.0s</span>
       </div>
 
       <form id="word-form" class="word-form">
-        <input id="input-word" autocomplete="off" placeholder="introdu cuvântul..." maxlength="30" />
+        <input id="input-word" type="text" autocomplete="off" placeholder="introdu cuvântul..." maxlength="30" />
         <button type="submit" class="btn btn-primary">SUBMIT</button>
       </form>
       <p id="word-error" class="word-error hidden"></p>
@@ -245,10 +250,13 @@
 
 <!-- ============ END SCREEN ============ -->
 <section id="screen-end" class="screen">
+  <div class="ambient-orb o1"></div>
+  <div class="ambient-orb o2"></div>
   <div class="end-card glass">
     <p class="end-trophy">🏆</p>
     <h1 id="end-winner-name">—</h1>
     <p class="end-sub">a câștigat partida!</p>
+    <p id="end-streak" class="end-streak hidden"></p>
     <div id="end-results" class="end-results"></div>
     <div class="end-actions">
       <button id="btn-play-again" class="btn btn-primary btn-lg">🔄 Play Again <span id="play-again-count"></span></button>
@@ -274,9 +282,24 @@
   <header class="subbar"><button class="back-btn" data-nav="menu">← Meniu</button><h2>⚙️ Setări</h2></header>
   <div class="glass settings-card">
     <label class="switch-row"><span>🔊 Sunete</span><input type="checkbox" id="setting-sound" /></label>
+    <div class="switch-row" id="volume-row">
+      <span>🔉 Volum</span>
+      <input type="range" id="setting-volume" min="0" max="100" step="5" />
+    </div>
     <label class="switch-row"><span>✨ Animații</span><input type="checkbox" id="setting-anim" /></label>
+    <label class="switch-row"><span>⌨️ Arată ce scrie adversarul, în timp real</span><input type="checkbox" id="setting-typing" /></label>
     <label class="switch-row"><span>🌙 Dark mode</span><input type="checkbox" id="setting-dark" checked disabled /></label>
     <p class="hint">Dark mode este tema principală a jocului Fazan.</p>
+
+    <div class="settings-divider"></div>
+
+    <span class="small-label muted" style="display:block; margin-bottom:10px;">CULOARE ACCENT</span>
+    <div class="theme-swatches" id="theme-swatches">
+      <button class="theme-swatch" data-theme="violet" style="background:linear-gradient(135deg,#7C5CFF,#5B8CFF)" title="Violet"></button>
+      <button class="theme-swatch" data-theme="teal" style="background:linear-gradient(135deg,#3EDBB5,#2FB89A)" title="Teal"></button>
+      <button class="theme-swatch" data-theme="gold" style="background:linear-gradient(135deg,#FFB454,#FF8A54)" title="Gold"></button>
+      <button class="theme-swatch" data-theme="pink" style="background:linear-gradient(135deg,#FF6B9D,#FF5C7A)" title="Roz"></button>
+    </div>
   </div>
 </section>
 
