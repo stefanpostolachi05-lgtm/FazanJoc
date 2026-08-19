@@ -164,6 +164,7 @@ app.get("/api/profile", (req, res) => {
     losses: p.losses,
     winRate: p.matches ? Math.round((p.wins / p.matches) * 100) : 0,
     bestStreak: p.bestStreak,
+    currentStreak: p.currentStreak,
     wordsPlayed: p.wordsPlayed,
     score: p.score,
   });
@@ -435,8 +436,29 @@ function submitWordInternal(room, playerId, rawWord) {
   return result;
 }
 
-function endGame(room, winner) {
-  clearTurnTimer(room);
+// Forteaza eliminarea unui jucator (folosit la "quit" in timpul unui meci
+// activ) - trateaza corect cazul in care era tocmai randul lui, ca sa nu
+// ramana runda blocata la infinit (turnTimer ar referi un jucator disparut).
+function forfeitPlayer(room, playerId) {
+  const player = room.players.get(playerId);
+  if (!player || !player.alive) return;
+  player.alive = false;
+  player.lives = 0;
+  io.to(room.code).emit("player_eliminated", { playerId, forfeited: true });
+
+  const survivors = alivePlayers(room);
+  if (survivors.length <= 1) {
+    endGame(room, survivors[0] || null);
+    return;
+  }
+  if (room.order[room.currentIndex] === playerId) {
+    advanceTurn(room);
+  } else {
+    broadcastRoom(room);
+  }
+}
+
+function endGame(room, winner) {  clearTurnTimer(room);
   room.state = "ended";
   room.playAgainVotes = new Set();
 
@@ -517,7 +539,7 @@ io.on("connection", (socket) => {
   socket.data.roomCode = null;
   socket.data.authenticated = false;
 
-  socket.on("set_identity", ({ nickname, email, token }) => {
+  socket.on("set_identity", ({ nickname, email, token }, ack) => {
     const decoded = token ? verifyToken(token) : null;
     if (decoded && decoded.email && PLAYERS_DB[decoded.email]) {
       // Sesiune verificata pe server (token semnat) - jucator autentificat cu adevarat.
@@ -525,6 +547,7 @@ io.on("connection", (socket) => {
       socket.data.email = decoded.email;
       socket.data.nickname = (PLAYERS_DB[decoded.email].nickname || nickname || "Jucator").toString().slice(0, 20);
       if (nickname) touchProfile(decoded.email, nickname.toString().slice(0, 20));
+      if (typeof ack === "function") ack({ authenticated: true, nickname: socket.data.nickname });
     } else {
       // Fara token valid = guest. Nickname-ul de guest e generat/validat aici,
       // nu doar trimis de client, ca sa ramana consistent chiar daca cineva
@@ -535,6 +558,7 @@ io.on("connection", (socket) => {
       socket.data.nickname = looksLikeGuestTag
         ? nickname.toString().trim()
         : `Guest-${guestTagCode()}`;
+      if (typeof ack === "function") ack({ authenticated: false, nickname: socket.data.nickname, tokenWasInvalid: Boolean(token) });
     }
   });
 
@@ -606,6 +630,28 @@ io.on("connection", (socket) => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
     submitWordInternal(room, socket.id, word);
+  });
+
+  // Transmite in timp real ce scrie jucatorul curent catre ceilalti din
+  // camera - doar un "preview" de text, nu se valideaza nimic aici.
+  socket.on("typing", ({ text }) => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room) return;
+    socket.to(room.code).emit("player_typing", {
+      playerId: socket.id,
+      text: (text || "").toString().slice(0, 30),
+    });
+  });
+
+  // Iesire fortata dintr-un meci in desfasurare - jucatorul e eliminat
+  // (forfeit), nu doar scos silentios din room (evita blocarea rundei).
+  socket.on("quit_match", () => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room) return;
+    if (room.state === "playing" || room.state === "wheel") {
+      forfeitPlayer(room, socket.id);
+    }
+    leaveCurrentRoom(socket);
   });
 
   socket.on("play_again", () => {
