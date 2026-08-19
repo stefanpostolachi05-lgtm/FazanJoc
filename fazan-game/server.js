@@ -5,6 +5,7 @@
 const path = require("path");
 const fs = require("fs");
 const http = require("http");
+const crypto = require("crypto");
 const express = require("express");
 const { Server } = require("socket.io");
 const { customAlphabet } = require("nanoid");
@@ -24,6 +25,47 @@ const MAX_PLAYERS = 4;
 const DATA_FILE = path.join(__dirname, "data", "players.json");
 
 const nanoidCode = customAlphabet("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", 4);
+const guestTagCode = customAlphabet("0123456789", 5);
+
+// ---------------------------------------------------------------------------
+// Autentificare: parole hash-uite (scrypt, din Node core - fara dependente
+// noi) + token de sesiune semnat (HMAC), pe modelul folosit si la proiectul
+// server-trivia. Schimbati SESSION_SECRET intr-un .env pentru productie.
+// ---------------------------------------------------------------------------
+const SESSION_SECRET = process.env.SESSION_SECRET || "fazan-schimba-acest-secret-in-productie";
+const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 zile
+
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+  return { salt, hash };
+}
+function verifyPassword(password, salt, hash) {
+  const attempt = crypto.scryptSync(password, salt, 64).toString("hex");
+  const a = Buffer.from(attempt, "hex");
+  const b = Buffer.from(hash, "hex");
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+function signToken(email) {
+  const payload = Buffer.from(JSON.stringify({ email, exp: Date.now() + TOKEN_TTL_MS })).toString("base64url");
+  const sig = crypto.createHmac("sha256", SESSION_SECRET).update(payload).digest("base64url");
+  return `${payload}.${sig}`;
+}
+function verifyToken(token) {
+  if (!token || typeof token !== "string" || !token.includes(".")) return null;
+  const [payload, sig] = token.split(".");
+  const expected = crypto.createHmac("sha256", SESSION_SECRET).update(payload).digest("base64url");
+  const a = Buffer.from(sig || "");
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  try {
+    const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    if (!data.exp || Date.now() > data.exp) return null;
+    return data; // { email, exp }
+  } catch {
+    return null;
+  }
+}
 
 const app = express();
 app.use(express.json());
@@ -56,30 +98,23 @@ function savePlayers(data) {
 }
 let PLAYERS_DB = loadPlayers(); // keyed by email (lowercase)
 
-function getOrCreateProfile(email, nickname) {
+// Foloseste doar pentru conturi deja existente (dupa signup) — NU mai
+// creeaza conturi noi implicit, ca sa nu ocolim parola.
+function touchProfile(email, nickname) {
   const key = email.toLowerCase();
-  if (!PLAYERS_DB[key]) {
-    PLAYERS_DB[key] = {
-      email: key,
-      nickname,
-      wins: 0,
-      matches: 0,
-      losses: 0,
-      bestStreak: 0,
-      currentStreak: 0,
-      wordsPlayed: 0,
-      score: 0,
-    };
-    savePlayers(PLAYERS_DB);
-  } else if (nickname) {
-    PLAYERS_DB[key].nickname = nickname;
-  }
+  if (!PLAYERS_DB[key]) return null;
+  if (nickname) PLAYERS_DB[key].nickname = nickname;
   return PLAYERS_DB[key];
+}
+
+function publicProfile(p) {
+  return { email: p.email, nickname: p.nickname };
 }
 
 function recordMatchResult({ email, nickname, won, wordsPlayed }) {
   if (!email) return;
-  const profile = getOrCreateProfile(email, nickname);
+  const profile = touchProfile(email, nickname);
+  if (!profile) return;
   profile.matches += 1;
   profile.wordsPlayed += wordsPlayed || 0;
   if (won) {
@@ -134,13 +169,49 @@ app.get("/api/profile", (req, res) => {
   });
 });
 
-app.post("/api/login", (req, res) => {
-  const { email, nickname } = req.body || {};
-  if (!email || !nickname) {
-    return res.status(400).json({ error: "email si nickname sunt necesare." });
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email || "");
+}
+
+app.post("/api/signup", (req, res) => {
+  const { email, nickname, password } = req.body || {};
+  if (!isValidEmail(email)) return res.status(400).json({ error: "Adresa de email nu este valida." });
+  if (!nickname || !nickname.toString().trim()) return res.status(400).json({ error: "Nickname-ul este necesar." });
+  if (!password || password.toString().length < 6) {
+    return res.status(400).json({ error: "Parola trebuie sa aiba cel putin 6 caractere." });
   }
-  const profile = getOrCreateProfile(email, nickname);
-  res.json({ profile });
+  const key = email.toLowerCase();
+  if (PLAYERS_DB[key]) {
+    return res.status(409).json({ error: "Exista deja un cont cu acest email. Incearca sa te conectezi." });
+  }
+  const { salt, hash } = hashPassword(password);
+  PLAYERS_DB[key] = {
+    email: key,
+    nickname: nickname.toString().trim().slice(0, 20),
+    passwordSalt: salt,
+    passwordHash: hash,
+    wins: 0,
+    matches: 0,
+    losses: 0,
+    bestStreak: 0,
+    currentStreak: 0,
+    wordsPlayed: 0,
+    score: 0,
+  };
+  savePlayers(PLAYERS_DB);
+  const token = signToken(key);
+  res.json({ token, profile: publicProfile(PLAYERS_DB[key]) });
+});
+
+app.post("/api/login", (req, res) => {
+  const { email, password } = req.body || {};
+  const key = (email || "").toLowerCase();
+  const account = PLAYERS_DB[key];
+  if (!account || !account.passwordHash || !verifyPassword(password || "", account.passwordSalt, account.passwordHash)) {
+    return res.status(401).json({ error: "Email sau parola incorecta." });
+  }
+  const token = signToken(key);
+  res.json({ token, profile: publicProfile(account) });
 });
 
 // ---------------------------------------------------------------------------
@@ -444,12 +515,26 @@ io.on("connection", (socket) => {
   socket.data.nickname = null;
   socket.data.email = null;
   socket.data.roomCode = null;
+  socket.data.authenticated = false;
 
-  socket.on("set_identity", ({ nickname, email }) => {
-    socket.data.nickname = (nickname || "Jucator").toString().slice(0, 20);
-    socket.data.email = email ? email.toString().toLowerCase() : null;
-    if (socket.data.email) {
-      getOrCreateProfile(socket.data.email, socket.data.nickname);
+  socket.on("set_identity", ({ nickname, email, token }) => {
+    const decoded = token ? verifyToken(token) : null;
+    if (decoded && decoded.email && PLAYERS_DB[decoded.email]) {
+      // Sesiune verificata pe server (token semnat) - jucator autentificat cu adevarat.
+      socket.data.authenticated = true;
+      socket.data.email = decoded.email;
+      socket.data.nickname = (PLAYERS_DB[decoded.email].nickname || nickname || "Jucator").toString().slice(0, 20);
+      if (nickname) touchProfile(decoded.email, nickname.toString().slice(0, 20));
+    } else {
+      // Fara token valid = guest. Nickname-ul de guest e generat/validat aici,
+      // nu doar trimis de client, ca sa ramana consistent chiar daca cineva
+      // modifica JS-ul din browser.
+      socket.data.authenticated = false;
+      socket.data.email = null;
+      const looksLikeGuestTag = /^Guest-\d{4,6}$/i.test((nickname || "").toString().trim());
+      socket.data.nickname = looksLikeGuestTag
+        ? nickname.toString().trim()
+        : `Guest-${guestTagCode()}`;
     }
   });
 
@@ -458,6 +543,9 @@ io.on("connection", (socket) => {
   });
 
   socket.on("create_room", ({ name, isPublic }, cb) => {
+    if (!socket.data.authenticated) {
+      return cb && cb({ ok: false, error: "Multiplayer este disponibil doar pentru conturi autentificate. Creează-ți un cont sau conectează-te." });
+    }
     const room = createRoom({
       name,
       isPublic,
@@ -473,6 +561,9 @@ io.on("connection", (socket) => {
   });
 
   socket.on("join_room", ({ code }, cb) => {
+    if (!socket.data.authenticated) {
+      return cb && cb({ ok: false, error: "Multiplayer este disponibil doar pentru conturi autentificate. Creează-ți un cont sau conectează-te." });
+    }
     const room = rooms.get((code || "").toUpperCase());
     if (!room) return cb && cb({ ok: false, error: "Camera nu exista." });
     if (room.state !== "lobby") return cb && cb({ ok: false, error: "Partida a inceput deja." });

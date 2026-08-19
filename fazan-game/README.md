@@ -14,10 +14,10 @@ build step (client). Un singur serviciu web — asta face deploy-ul foarte simpl
 
 ```
 fazan-game/
-├── server.js              ← serverul (Express + Socket.IO + logica jocului)
+├── server.js              ← serverul (Express + Socket.IO + logica jocului + autentificare)
 ├── data/
 │   ├── dictionary.js       ← lista de cuvinte românești + validare
-│   └── players.json        ← (se creează automat) statistici jucători
+│   └── players.json        ← (se creează automat) conturi + statistici jucători
 ├── public/                 ← tot ce vede browserul
 │   ├── index.html
 │   ├── css/style.css
@@ -26,6 +26,22 @@ fazan-game/
 ├── render.yaml              ← configurare deploy automat pe Render
 └── .gitignore
 ```
+
+### Variabilă de mediu nouă: SESSION_SECRET
+
+De la actualizarea cu Sign Up/Sign In real, serverul semnează token-urile de
+sesiune cu un secret. Are o valoare implicită (funcțională, dar nesigură
+pentru producție). Înainte de deploy, setează în mediul serverului (sau
+într-un `.env`, dacă adaugi suport pentru el):
+
+```
+SESSION_SECRET=un-sir-lung-si-random-al-tau
+```
+
+Dacă nu-l setezi, aplicația tot funcționează (folosește un secret implicit),
+dar oricine citește codul sursă ar putea, teoretic, falsifica un token de
+sesiune. Pentru un joc de comunitate fără date sensibile, riscul e mic — dar
+merită schimbat dacă vrei să fii riguros.
 
 ---
 
@@ -220,7 +236,41 @@ Render free tier** (disc efemer). Pentru productie:
 - ✅ Validarea cuvintelor + toată logica de joc rulează **pe server**
   pentru multiplayer (nu doar în browser), pentru a preveni cheating-ul
 
-## 8. Limitări cunoscute / pentru viitor
+## 8. Ce am reparat / adăugat la această actualizare
+
+- ✅ **Bug crucial reparat**: în Singleplayer, caseta de input rămânea
+  blocată mereu, chiar și la rândul tău — jucătorul uman avea id-ul `"me"`,
+  dar codul verifica dacă e rândul tău comparând cu id-ul de socket, care nu
+  se potrivea niciodată. Acum funcționează corect.
+- ✅ **Sign Up / Sign In reale**: cont cu email + parolă (hash-uită cu
+  scrypt, din Node core, fără librării noi), nu doar un email fără parolă ca
+  înainte. La autentificare reușită primești un token de sesiune semnat,
+  păstrat automat pentru vizitele următoare ("Bine ai revenit...").
+- ✅ **Guests automați**: dacă nu te loghezi, primești automat un nickname
+  gen `Guest-84213` și poți juca **doar Singleplayer** — Multiplayer e vizibil
+  blocat (🔒) în meniu, iar interdicția e verificată și pe server (nu doar
+  ascunsă în interfață), deci nu poate fi ocolită din consola browserului.
+- ✅ **Meniul principal e centrat vertical** pe ecran, nu mai stă lipit sus.
+- ✅ **Mai multă "viață" vizuală**: glow-uri ambientale pe ecranul de start,
+  efect de sclipire la hover pe butoane și carduri, o bandă decorativă cu
+  exemple de lanțuri de cuvinte Fazan sub meniu.
+
+## 9. Ce nu am putut testa direct (transparență)
+
+Am testat separat, riguros: logica de hash/verificare parole și semnare de
+token-uri (funcționează corect), și toată interfața vizuală într-un browser
+real (welcome screen, tab-uri, guest, blocarea multiplayer, centrarea
+meniului, și mai ales fix-ul de la Singleplayer — confirmat că poți scrie în
+casetă la rândul tău).
+
+Ce NU am putut testa aici: fluxul complet prin serverul real (Express +
+Socket.IO), pentru că mediul meu de lucru nu are acces la internet ca să
+instaleze aceste librării. Codul urmează exact aceleași tipare deja
+funcționale din alte proiecte testate complet. Recomand să testezi tu local
+(`npm install && npm start`) fluxul de multiplayer cu 2 taburi de browser
+înainte de a redeploya pe Render, ca ultimă verificare.
+
+## 10. Limitări cunoscute / pentru viitor
 
 - Dicționarul de bază are ~900 de cuvinte (vezi secțiunea 5 pentru extindere)
 - Autentificarea e simplificată (fără parolă) — nu o folosi „ca atare” pentru

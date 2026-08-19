@@ -18,6 +18,8 @@
 
 <!-- ============ WELCOME ============ -->
 <section id="screen-welcome" class="screen active">
+  <div class="welcome-orb welcome-orb-1"></div>
+  <div class="welcome-orb welcome-orb-2"></div>
   <div class="welcome-card glass">
     <div class="brand">
       <svg class="brand-mark" viewBox="0 0 64 64" width="52" height="52">
@@ -33,23 +35,53 @@
     </div>
     <p class="brand-sub">Lanțul de cuvinte care nu iartă. Ultimele două litere decid totul.</p>
 
-    <div class="field">
-      <label for="input-nickname">Nickname</label>
-      <input id="input-nickname" maxlength="20" placeholder="ex: Alex" autocomplete="off" />
+    <!-- Reia sesiunea salvata, daca exista -->
+    <div id="welcome-back" class="welcome-back hidden">
+      <p class="muted">Bine ai revenit, <b id="welcome-back-name"></b>!</p>
+      <button id="btn-continue-session" class="btn btn-primary btn-lg">Continuă</button>
+      <button id="btn-switch-account" class="link-btn">Folosește alt cont</button>
     </div>
 
-    <div id="auth-toggle-wrap" class="auth-toggle">
-      <button id="btn-show-email" class="link-btn">Am cont — conectează-te cu email</button>
-    </div>
+    <div id="auth-forms-wrap">
+      <div class="auth-tabs">
+        <button id="tab-signin" class="auth-tab active" type="button">Sign In</button>
+        <button id="tab-signup" class="auth-tab" type="button">Sign Up</button>
+      </div>
 
-    <div id="email-field" class="field hidden">
-      <label for="input-email">Email</label>
-      <input id="input-email" type="email" placeholder="tu@exemplu.com" autocomplete="off" />
-      <p class="hint">Fără parolă în această versiune demo — progresul se leagă de acest email.</p>
-    </div>
+      <form id="form-signin" class="auth-form">
+        <div class="field">
+          <label for="signin-email">Email</label>
+          <input id="signin-email" type="email" placeholder="tu@exemplu.com" autocomplete="email" required />
+        </div>
+        <div class="field">
+          <label for="signin-password">Parolă</label>
+          <input id="signin-password" type="password" placeholder="••••••••" autocomplete="current-password" required />
+        </div>
+        <p class="hint-error" id="signin-error"></p>
+        <button type="submit" class="btn btn-primary btn-lg">Conectează-te</button>
+      </form>
 
-    <button id="btn-enter" class="btn btn-primary btn-lg">Intră în joc</button>
-    <p class="welcome-note">Poți continua și fără cont, ca invitat.</p>
+      <form id="form-signup" class="auth-form hidden">
+        <div class="field">
+          <label for="signup-nickname">Nickname</label>
+          <input id="signup-nickname" maxlength="20" placeholder="ex: Alex" autocomplete="off" required />
+        </div>
+        <div class="field">
+          <label for="signup-email">Email</label>
+          <input id="signup-email" type="email" placeholder="tu@exemplu.com" autocomplete="email" required />
+        </div>
+        <div class="field">
+          <label for="signup-password">Parolă</label>
+          <input id="signup-password" type="password" placeholder="minim 6 caractere" autocomplete="new-password" required />
+        </div>
+        <p class="hint-error" id="signup-error"></p>
+        <button type="submit" class="btn btn-primary btn-lg">Creează cont</button>
+      </form>
+
+      <div class="welcome-divider"><span>sau</span></div>
+      <button id="btn-guest" class="btn btn-ghost btn-lg">Continuă ca Guest</button>
+      <p class="welcome-note">Ca invitat poți juca doar <b>Singleplayer</b>. Multiplayer necesită cont.</p>
+    </div>
   </div>
 </section>
 
@@ -59,18 +91,25 @@
     <div class="topbar-brand"><span class="dot"></span> FAZAN</div>
     <div class="topbar-user">
       <span id="menu-nickname" class="pill"></span>
+      <button id="btn-logout" class="link-btn hidden">Ieși din cont</button>
     </div>
   </header>
+
+  <div class="word-ticker-wrap">
+    <div class="word-ticker" id="word-ticker"></div>
+  </div>
+
   <div class="menu-grid">
     <button class="menu-card glass" data-nav="singleplayer">
       <span class="menu-emoji">🎮</span>
       <span class="menu-title">Singleplayer</span>
       <span class="menu-desc">Joacă împotriva boților</span>
     </button>
-    <button class="menu-card glass" data-nav="multiplayer">
+    <button class="menu-card glass" data-nav="multiplayer" id="menu-card-multiplayer">
+      <span class="menu-lock hidden" id="menu-lock-multiplayer" title="Necesită cont">🔒</span>
       <span class="menu-emoji">👥</span>
       <span class="menu-title">Multiplayer</span>
-      <span class="menu-desc">Camere de până la 4 jucători</span>
+      <span class="menu-desc" id="menu-desc-multiplayer">Camere de până la 4 jucători</span>
     </button>
     <button class="menu-card glass" data-nav="leaderboard">
       <span class="menu-emoji">🏆</span>

@@ -119,8 +119,15 @@ h1, h2, h3 { font-family: var(--font-display); margin: 0; }
 /* ==========================================================================
    WELCOME
    ========================================================================== */
-#screen-welcome { justify-content: center; align-items: center; min-height: 100vh; }
-.welcome-card { max-width: 420px; width: 100%; padding: 36px 30px; text-align: center; }
+#screen-welcome { justify-content: center; align-items: center; min-height: 100vh; position: relative; overflow: hidden; }
+.welcome-orb {
+  position: absolute; border-radius: 50%; filter: blur(70px); pointer-events: none; z-index: 0;
+  animation: orbDrift 9s ease-in-out infinite alternate;
+}
+.welcome-orb-1 { width: 340px; height: 340px; background: rgba(124,92,255,0.35); top: -80px; left: -80px; }
+.welcome-orb-2 { width: 300px; height: 300px; background: rgba(62,219,181,0.28); bottom: -100px; right: -60px; animation-delay: 1.5s; }
+@keyframes orbDrift { from { transform: translate(0,0) scale(1); } to { transform: translate(30px,-20px) scale(1.12); } }
+.welcome-card { max-width: 420px; width: 100%; padding: 36px 30px; text-align: center; position: relative; z-index: 1; }
 .brand { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 6px; }
 .brand-mark { filter: drop-shadow(0 0 18px rgba(124,92,255,0.5)); animation: float 4s ease-in-out infinite; }
 @keyframes float { 0%,100% { transform: translateY(0);} 50% { transform: translateY(-6px);} }
@@ -132,6 +139,32 @@ h1, h2, h3 { font-family: var(--font-display); margin: 0; }
 .brand-sub { color: var(--muted); font-size: 14px; margin: 0 0 22px; line-height: 1.5; }
 .auth-toggle { margin-bottom: 4px; }
 .welcome-note { font-size: 12.5px; color: var(--muted); margin-top: 14px; }
+.welcome-note b { color: var(--text); }
+
+.welcome-back { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.welcome-back.hidden { display: none; }
+
+.auth-tabs { display: flex; gap: 6px; background: rgba(255,255,255,0.05); border-radius: 12px; padding: 4px; margin-bottom: 20px; }
+.auth-tab {
+  flex: 1; background: none; border: none; color: var(--muted); font-family: var(--font-body);
+  font-weight: 700; font-size: 14px; padding: 10px 0; border-radius: 9px; cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.auth-tab.active { background: linear-gradient(135deg, var(--violet), #5B8CFF); color: #fff; }
+.auth-form.hidden { display: none; }
+.hint-error { color: var(--red); font-size: 12.5px; font-weight: 600; margin: -6px 0 12px; min-height: 15px; text-align: left; }
+
+.welcome-divider { display: flex; align-items: center; gap: 10px; margin: 18px 0 14px; color: var(--muted); font-size: 12px; }
+.welcome-divider::before, .welcome-divider::after { content: ""; flex: 1; height: 1px; background: var(--glass-border); }
+
+/* efect de "sclipire" la hover, pentru butoane si carduri de meniu */
+.btn, .menu-card { position: relative; overflow: hidden; }
+.btn::after, .menu-card::after {
+  content: ""; position: absolute; top: 0; left: -60%; width: 40%; height: 100%;
+  background: linear-gradient(120deg, transparent, rgba(255,255,255,0.22), transparent);
+  transform: skewX(-20deg); transition: left 0.55s ease;
+}
+.btn:hover::after, .menu-card:hover::after { left: 130%; }
 
 /* ==========================================================================
    TOPBAR / MENU
@@ -148,18 +181,41 @@ h1, h2, h3 { font-family: var(--font-display); margin: 0; }
 }
 .pill-sm { padding: 5px 10px; font-size: 12px; }
 
+#screen-menu { min-height: 100vh; }
+.topbar-user { display: flex; align-items: center; gap: 12px; }
+
+/* decorativ: banda cu exemple de lanturi de cuvinte, sub topbar */
+.word-ticker-wrap {
+  width: 100%; max-width: 900px; overflow: hidden; margin-bottom: 6px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+}
+.word-ticker {
+  display: flex; gap: 10px; white-space: nowrap; font-family: var(--font-mono);
+  font-size: 12.5px; color: var(--muted); padding: 6px 0 22px; animation: tickerScroll 22s linear infinite;
+}
+.word-ticker span.arrow { color: var(--violet-2); }
+@keyframes tickerScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+/* margin: auto pe axa verticala centreaza grila de optiuni in spatiul ramas
+   sub topbar, in loc sa stea lipita sus */
 .menu-grid {
   width: 100%; max-width: 900px; display: grid; gap: 16px;
   grid-template-columns: repeat(3, 1fr);
+  margin-top: auto; margin-bottom: auto;
 }
 .menu-card {
   padding: 26px 18px; display: flex; flex-direction: column; align-items: center; gap: 8px;
   cursor: pointer; color: var(--text); transition: transform 0.18s ease, border-color 0.18s ease;
 }
 .menu-card:hover { transform: translateY(-4px); border-color: var(--violet); }
+.menu-card.locked { opacity: 0.55; cursor: not-allowed; }
+.menu-card.locked:hover { transform: none; border-color: var(--glass-border); }
 .menu-emoji { font-size: 34px; }
 .menu-title { font-family: var(--font-display); font-weight: 700; font-size: 17px; }
 .menu-desc { font-size: 12.5px; color: var(--muted); text-align: center; }
+.menu-lock { position: absolute; top: 12px; right: 14px; font-size: 15px; }
+.menu-lock.hidden { display: none; }
 
 /* ==========================================================================
    SUBBAR / GENERIC PANELS

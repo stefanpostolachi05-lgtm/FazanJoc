@@ -10,6 +10,8 @@
   const state = {
     nickname: localStorage.getItem("fazan_nickname") || "",
     email: localStorage.getItem("fazan_email") || "",
+    token: localStorage.getItem("fazan_token") || "",
+    isGuest: true,
     socket: null,
     myId: null,
     room: null, // ultima stare de room primita de la server
@@ -44,6 +46,10 @@
     if (target === "menu") showScreen("menu");
     else if (target === "singleplayer") showScreen("sp-setup");
     else if (target === "multiplayer") {
+      if (state.isGuest) {
+        toast("Multiplayer necesită cont. Creează unul gratuit din ecranul de start!");
+        return;
+      }
       showScreen("mp-hub");
       requestPublicRooms();
     } else if (target === "leaderboard") {
@@ -177,48 +183,189 @@
   })();
 
   // ------------------------------------------------------------------
-  // WELCOME screen
+  // WELCOME screen — Sign In / Sign Up / Guest
   // ------------------------------------------------------------------
-  const inputNickname = document.getElementById("input-nickname");
-  const inputEmail = document.getElementById("input-email");
-  const emailField = document.getElementById("email-field");
-  const btnShowEmail = document.getElementById("btn-show-email");
-  const btnEnter = document.getElementById("btn-enter");
+  const welcomeBack = document.getElementById("welcome-back");
+  const welcomeBackName = document.getElementById("welcome-back-name");
+  const authFormsWrap = document.getElementById("auth-forms-wrap");
+  const tabSignin = document.getElementById("tab-signin");
+  const tabSignup = document.getElementById("tab-signup");
+  const formSignin = document.getElementById("form-signin");
+  const formSignup = document.getElementById("form-signup");
+  const signinError = document.getElementById("signin-error");
+  const signupError = document.getElementById("signup-error");
+  const btnGuest = document.getElementById("btn-guest");
+  const btnContinueSession = document.getElementById("btn-continue-session");
+  const btnSwitchAccount = document.getElementById("btn-switch-account");
 
-  inputNickname.value = state.nickname;
-  if (state.email) inputEmail.value = state.email;
+  function guestTag() {
+    return "Guest-" + String(Math.floor(10000 + Math.random() * 90000));
+  }
 
-  btnShowEmail.addEventListener("click", () => {
-    emailField.classList.toggle("hidden");
-    btnShowEmail.textContent = emailField.classList.contains("hidden")
-      ? "Am cont — conectează-te cu email"
-      : "Continuă doar ca invitat";
-  });
+  function enterAsGuest() {
+    state.isGuest = true;
+    state.email = "";
+    state.token = "";
+    state.nickname = localStorage.getItem("fazan_nickname") && !state.email
+      ? guestTag() // preferam mereu un tag proaspat de guest, ca sa fie clar ca nu esti logat
+      : guestTag();
+    localStorage.removeItem("fazan_email");
+    localStorage.removeItem("fazan_token");
+    localStorage.setItem("fazan_nickname", state.nickname);
+    enterGame();
+  }
 
-  btnEnter.addEventListener("click", async () => {
-    const nickname = inputNickname.value.trim().slice(0, 20);
-    if (!nickname) { toast("Introdu un nickname."); return; }
-    const email = emailField.classList.contains("hidden") ? "" : inputEmail.value.trim();
+  function enterAsAccount({ token, profile }) {
+    state.isGuest = false;
+    state.token = token;
+    state.email = profile.email;
+    state.nickname = profile.nickname;
+    localStorage.setItem("fazan_token", token);
+    localStorage.setItem("fazan_email", profile.email);
+    localStorage.setItem("fazan_nickname", profile.nickname);
+    enterGame();
+  }
 
-    state.nickname = nickname;
-    state.email = email;
-    localStorage.setItem("fazan_nickname", nickname);
-    localStorage.setItem("fazan_email", email);
-
-    if (email) {
-      try {
-        await fetch("/api/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, nickname }),
-        });
-      } catch (e) { /* continua oricum */ }
-    }
-
+  function enterGame() {
     connectSocket();
-    document.getElementById("menu-nickname").textContent = "👋 " + nickname;
+    renderMenuIdentity();
     showScreen("menu");
+  }
+
+  function renderMenuIdentity() {
+    const nickEl = document.getElementById("menu-nickname");
+    const logoutBtn = document.getElementById("btn-logout");
+    nickEl.textContent = (state.isGuest ? "👤 " : "👋 ") + state.nickname;
+    logoutBtn.classList.toggle("hidden", state.isGuest);
+
+    const lock = document.getElementById("menu-lock-multiplayer");
+    const desc = document.getElementById("menu-desc-multiplayer");
+    const card = document.getElementById("menu-card-multiplayer");
+    lock.classList.toggle("hidden", !state.isGuest);
+    card.classList.toggle("locked", state.isGuest);
+    desc.textContent = state.isGuest ? "Necesită cont — Sign Up gratuit" : "Camere de până la 4 jucători";
+  }
+
+  document.getElementById("btn-logout").addEventListener("click", () => {
+    localStorage.removeItem("fazan_token");
+    localStorage.removeItem("fazan_email");
+    localStorage.removeItem("fazan_nickname");
+    state.token = "";
+    state.email = "";
+    state.isGuest = true;
+    if (state.socket) { state.socket.disconnect(); state.socket = null; }
+    showScreen("welcome");
+    resetWelcomeForms();
   });
+
+  function resetWelcomeForms() {
+    welcomeBack.classList.add("hidden");
+    authFormsWrap.classList.remove("hidden");
+    formSignin.reset();
+    formSignup.reset();
+    signinError.textContent = "";
+    signupError.textContent = "";
+  }
+
+  tabSignin.addEventListener("click", () => {
+    tabSignin.classList.add("active"); tabSignup.classList.remove("active");
+    formSignin.classList.remove("hidden"); formSignup.classList.add("hidden");
+  });
+  tabSignup.addEventListener("click", () => {
+    tabSignup.classList.add("active"); tabSignin.classList.remove("active");
+    formSignup.classList.remove("hidden"); formSignin.classList.add("hidden");
+  });
+
+  formSignin.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    signinError.textContent = "";
+    const email = document.getElementById("signin-email").value.trim();
+    const password = document.getElementById("signin-password").value;
+    const submitBtn = formSignin.querySelector("button[type=submit]");
+    submitBtn.disabled = true;
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) { signinError.textContent = data.error || "Eroare la conectare."; return; }
+      enterAsAccount(data);
+    } catch (e) {
+      signinError.textContent = "Nu s-a putut contacta serverul. Încearcă din nou.";
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+
+  formSignup.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    signupError.textContent = "";
+    const nickname = document.getElementById("signup-nickname").value.trim().slice(0, 20);
+    const email = document.getElementById("signup-email").value.trim();
+    const password = document.getElementById("signup-password").value;
+    const submitBtn = formSignup.querySelector("button[type=submit]");
+    submitBtn.disabled = true;
+    try {
+      const res = await fetch("/api/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, nickname, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) { signupError.textContent = data.error || "Eroare la crearea contului."; return; }
+      toast("Cont creat cu succes!");
+      enterAsAccount(data);
+    } catch (e) {
+      signupError.textContent = "Nu s-a putut contacta serverul. Încearcă din nou.";
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+
+  btnGuest.addEventListener("click", enterAsGuest);
+
+  btnContinueSession.addEventListener("click", () => {
+    enterAsAccount({ token: state.token, profile: { email: state.email, nickname: state.nickname } });
+  });
+  btnSwitchAccount.addEventListener("click", () => {
+    localStorage.removeItem("fazan_token");
+    localStorage.removeItem("fazan_email");
+    state.token = ""; state.email = "";
+    resetWelcomeForms();
+  });
+
+  // Daca exista un token salvat din vizita anterioara, propunem reluarea sesiunii
+  // (verificarea reala tot se face pe server, la conectarea socket-ului).
+  (function checkSavedSession() {
+    if (state.token && state.email && state.nickname) {
+      welcomeBackName.textContent = state.nickname;
+      welcomeBack.classList.remove("hidden");
+      authFormsWrap.classList.add("hidden");
+    }
+  })();
+
+  // ------------------------------------------------------------------
+  // Ticker decorativ cu exemple de lanturi Fazan (doar vizual)
+  // ------------------------------------------------------------------
+  (function initTicker() {
+    const el = document.getElementById("word-ticker");
+    if (!el) return;
+    const chains = [
+      ["RECHIN", "INOT", "OTIS", "ISVOR", "ORHIDEE"],
+      ["MASINA", "NADEJDE", "DELUROS", "OSPATAR", "ARGINT"],
+      ["PADURE", "REVISTA", "TATAL", "ALBASTRU", "TRUDA"],
+      ["CANTEC", "ECOU", "OUA", "UART", "ARTIST"],
+    ];
+    let html = "";
+    for (let r = 0; r < 3; r++) { // repetam de cateva ori ca sa umplem banda si sa poata bucla la infinit
+      for (const chain of chains) {
+        html += chain.map((w, i) => (i === 0 ? w : `<span class="arrow">→</span> ${w}`)).join(" ") + `<span style="opacity:.3">&nbsp;&nbsp;•&nbsp;&nbsp;</span>`;
+      }
+    }
+    el.innerHTML = html;
+  })();
 
   // ------------------------------------------------------------------
   // Socket.IO
@@ -230,7 +377,7 @@
 
     s.on("connect", () => {
       state.myId = s.id;
-      s.emit("set_identity", { nickname: state.nickname, email: state.email || null });
+      s.emit("set_identity", { nickname: state.nickname, email: state.email || null, token: state.token || null });
     });
 
     // reconectare: id nou dupa disconnect
@@ -239,7 +386,7 @@
     });
     s.io.on("reconnect", () => {
       state.myId = s.id;
-      s.emit("set_identity", { nickname: state.nickname, email: state.email || null });
+      s.emit("set_identity", { nickname: state.nickname, email: state.email || null, token: state.token || null });
       toast("Reconectat!");
     });
 
@@ -476,7 +623,11 @@
     document.getElementById("last-word-display").textContent = data.lastWord ? data.lastWord.toUpperCase() : "—";
     document.getElementById("prefix-display").textContent = data.requiredPrefix ? data.requiredPrefix.toUpperCase() : "?";
 
-    const isMe = data.currentPlayerId === state.myId;
+    // BUG FIX: in singleplayer, jucatorul uman are id-ul fix "me" (vezi
+    // startSingleplayer), nu id-ul de socket (state.myId) — comparatia veche
+    // esua mereu si bloca definitiv caseta de input. In multiplayer real,
+    // server-ul trimite id-uri de socket, deci acolo state.myId ramane corect.
+    const isMe = state.sp ? data.currentPlayerId === "me" : data.currentPlayerId === state.myId;
     document.getElementById("game-turn-label").textContent = isMe
       ? "RÂNDUL TĂU!"
       : `Rândul lui ${playerNickname(data.currentPlayerId)}...`;
