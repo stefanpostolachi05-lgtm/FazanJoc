@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
+<title>FAZAN — jocul romanesc de cuvinte</title>
+<meta name="theme-color" content="#0B0E17" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+
+<div id="toast-root" class="toast-root"></div>
+<div id="confetti-root" class="confetti-root"></div>
+
+<!-- ============ WELCOME ============ -->
+<section id="screen-welcome" class="screen active">
+  <div class="welcome-orb welcome-orb-1"></div>
+  <div class="welcome-orb welcome-orb-2"></div>
+  <div class="welcome-card glass">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 64 64" width="52" height="52">
+        <path d="M32 4c-4 6-2 12 2 15-6 1-11 6-12 13-6-2-11 1-13 6 3 9 12 15 23 15 13 0 24-10 24-23 0-13-9-24-24-26z" fill="url(#fgrad)"/>
+        <defs>
+          <linearGradient id="fgrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#7C5CFF"/>
+            <stop offset="1" stop-color="#3EDBB5"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <h1 class="brand-title">FAZAN</h1>
+    </div>
+    <p class="brand-sub">Lanțul de cuvinte care nu iartă. Ultimele două litere decid totul.</p>
+
+    <!-- Reia sesiunea salvata, daca exista -->
+    <div id="welcome-back" class="welcome-back hidden">
+      <p class="muted">Bine ai revenit, <b id="welcome-back-name"></b>!</p>
+      <button id="btn-continue-session" class="btn btn-primary btn-lg">Continuă</button>
+      <button id="btn-switch-account" class="link-btn">Folosește alt cont</button>
+    </div>
+
+    <div id="auth-forms-wrap">
+      <div class="auth-tabs">
+        <button id="tab-signin" class="auth-tab active" type="button">Sign In</button>
+        <button id="tab-signup" class="auth-tab" type="button">Sign Up</button>
+      </div>
+
+      <form id="form-signin" class="auth-form">
+        <div class="field">
+          <label for="signin-email">Email</label>
+          <input id="signin-email" type="email" placeholder="tu@exemplu.com" autocomplete="email" required />
+        </div>
+        <div class="field">
+          <label for="signin-password">Parolă</label>
+          <input id="signin-password" type="password" placeholder="••••••••" autocomplete="current-password" required />
+        </div>
+        <p class="hint-error" id="signin-error"></p>
+        <button type="submit" class="btn btn-primary btn-lg">Conectează-te</button>
+      </form>
+
+      <form id="form-signup" class="auth-form hidden">
+        <div class="field">
+          <label for="signup-nickname">Nickname</label>
+          <input id="signup-nickname" maxlength="20" placeholder="ex: Alex" autocomplete="off" required />
+        </div>
+        <div class="field">
+          <label for="signup-email">Email</label>
+          <input id="signup-email" type="email" placeholder="tu@exemplu.com" autocomplete="email" required />
+        </div>
+        <div class="field">
+          <label for="signup-password">Parolă</label>
+          <input id="signup-password" type="password" placeholder="minim 6 caractere" autocomplete="new-password" required />
+        </div>
+        <p class="hint-error" id="signup-error"></p>
+        <button type="submit" class="btn btn-primary btn-lg">Creează cont</button>
+      </form>
+
+      <div class="welcome-divider"><span>sau</span></div>
+      <button id="btn-guest" class="btn btn-ghost btn-lg">Continuă ca Guest</button>
+      <p class="welcome-note">Ca invitat poți juca doar <b>Singleplayer</b>. Multiplayer necesită cont.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MAIN MENU ============ -->
+<section id="screen-menu" class="screen">
+  <header class="topbar">
+    <div class="topbar-brand"><span class="dot"></span> FAZAN</div>
+    <div class="topbar-user">
+      <span id="menu-nickname" class="pill"></span>
+      <button id="btn-logout" class="link-btn hidden">Ieși din cont</button>
+    </div>
+  </header>
+
+  <div class="word-ticker-wrap">
+    <div class="word-ticker" id="word-ticker"></div>
+  </div>
+
+  <div class="menu-grid">
+    <button class="menu-card glass" data-nav="singleplayer">
+      <span class="menu-emoji">🎮</span>
+      <span class="menu-title">Singleplayer</span>
+      <span class="menu-desc">Joacă împotriva boților</span>
+    </button>
+    <button class="menu-card glass" data-nav="multiplayer" id="menu-card-multiplayer">
+      <span class="menu-lock hidden" id="menu-lock-multiplayer" title="Necesită cont">🔒</span>
+      <span class="menu-emoji">👥</span>
+      <span class="menu-title">Multiplayer</span>
+      <span class="menu-desc" id="menu-desc-multiplayer">Camere de până la 4 jucători</span>
+    </button>
+    <button class="menu-card glass" data-nav="leaderboard">
+      <span class="menu-emoji">🏆</span>
+      <span class="menu-title">Leaderboard</span>
+      <span class="menu-desc">Clasamentul jucătorilor</span>
+    </button>
+    <button class="menu-card glass" data-nav="profile">
+      <span class="menu-emoji">👤</span>
+      <span class="menu-title">Profil</span>
+      <span class="menu-desc">Statisticile tale</span>
+    </button>
+    <button class="menu-card glass" data-nav="settings">
+      <span class="menu-emoji">⚙️</span>
+      <span class="menu-title">Setări</span>
+      <span class="menu-desc">Sunet & animații</span>
+    </button>
+  </div>
+</section>
+
+<!-- ============ SINGLEPLAYER SETUP ============ -->
+<section id="screen-sp-setup" class="screen">
+  <header class="subbar"><button class="back-btn" data-nav="menu">← Meniu</button><h2>Singleplayer</h2></header>
+  <div class="center-card glass">
+    <p class="muted">Alege dificultatea boților:</p>
+    <div class="diff-grid">
+      <button class="diff-btn" data-diff="easy"><b>Easy</b><span>Boți lenți, greșesc des</span></button>
+      <button class="diff-btn" data-diff="medium"><b>Medium</b><span>Echilibrat</span></button>
+      <button class="diff-btn" data-diff="hard"><b>Hard</b><span>Rapizi, aproape perfecți</span></button>
+    </div>
+    <div class="diff-grid" style="margin-top:8px">
+      <button class="diff-btn" data-bots="1"><b>1 bot</b><span>Duel</span></button>
+      <button class="diff-btn" data-bots="2"><b>2 boți</b><span>Trio</span></button>
+      <button class="diff-btn" data-bots="3"><b>3 boți</b><span>Cameră plină</span></button>
+    </div>
+    <button id="btn-start-sp" class="btn btn-primary btn-lg" style="margin-top:20px">Începe jocul</button>
+  </div>
+</section>
+
+<!-- ============ MULTIPLAYER HUB ============ -->
+<section id="screen-mp-hub" class="screen">
+  <header class="subbar"><button class="back-btn" data-nav="menu">← Meniu</button><h2>Multiplayer</h2></header>
+  <div class="mp-grid">
+    <div class="glass mp-panel">
+      <h3>Creează cameră</h3>
+      <div class="field"><label>Nume cameră (opțional)</label><input id="input-room-name" placeholder="Camera lui..." /></div>
+      <label class="checkbox-row"><input type="checkbox" id="input-room-public" checked /> Cameră publică (vizibilă tuturor)</label>
+      <button id="btn-create-room" class="btn btn-primary">Creează</button>
+    </div>
+    <div class="glass mp-panel">
+      <h3>Alătură-te cu cod</h3>
+      <div class="field"><label>Cod cameră</label><input id="input-join-code" placeholder="FAZAN-XXXX" style="text-transform:uppercase" /></div>
+      <button id="btn-join-room" class="btn btn-secondary">Intră</button>
+    </div>
+  </div>
+  <div class="glass mp-panel mp-suggested">
+    <div class="row-between"><h3>Camere publice</h3><button id="btn-refresh-rooms" class="link-btn">↻ Reîmprospătează</button></div>
+    <div id="public-rooms-list" class="rooms-list"><p class="muted">Se caută camere...</p></div>
+  </div>
+</section>
+
+<!-- ============ LOBBY ============ -->
+<section id="screen-lobby" class="screen">
+  <header class="subbar">
+    <button class="back-btn" data-action="leave-room">← Ieși</button>
+    <h2>Lobby</h2>
+  </header>
+  <div class="lobby-wrap">
+    <div class="glass room-code-card">
+      <span class="muted">Cod cameră</span>
+      <div class="room-code-row">
+        <span id="lobby-room-code">FAZAN-XXXX</span>
+        <button id="btn-copy-code" class="icon-btn" title="Copiază">⧉</button>
+      </div>
+    </div>
+    <div id="lobby-players" class="lobby-players"></div>
+    <button id="btn-start-game" class="btn btn-primary btn-lg hidden">🎬 Start Game</button>
+    <p id="lobby-hint" class="muted center-text">Se așteaptă mai mulți jucători... (minim 2)</p>
+  </div>
+</section>
+
+<!-- ============ WHEEL ============ -->
+<section id="screen-wheel" class="screen">
+  <div class="wheel-wrap">
+    <p class="wheel-label">🎡 ROATA SE ÎNVÂRTE...</p>
+    <div class="wheel-names" id="wheel-names"></div>
+    <p id="wheel-result" class="wheel-result hidden"></p>
+  </div>
+</section>
+
+<!-- ============ GAME ============ -->
+<section id="screen-game" class="screen">
+  <header class="game-top">
+    <div class="game-top-left">
+      <span class="brand-mini">FAZAN</span>
+      <span id="game-room-code" class="pill pill-sm"></span>
+    </div>
+    <div class="game-top-right">
+      <span id="game-round" class="pill pill-sm">Runda 1</span>
+    </div>
+  </header>
+
+  <div class="game-layout">
+    <aside id="players-sidebar" class="players-sidebar glass"></aside>
+
+    <main class="game-center">
+      <div id="disconnect-banner" class="banner hidden"></div>
+
+      <p class="game-turn-label" id="game-turn-label">Se așteaptă...</p>
+
+      <div class="last-word-block">
+        <span class="muted small-label">ULTIMUL CUVÂNT</span>
+        <h2 id="last-word-display">—</h2>
+      </div>
+
+      <div class="prefix-block">
+        <span class="muted small-label">TREBUIE SĂ ÎNCEPI CU</span>
+        <h1 id="prefix-display">—</h1>
+      </div>
+
+      <div class="timer-wrap">
+        <div class="timer-bar-track"><div id="timer-bar" class="timer-bar-fill"></div></div>
+        <span id="timer-text" class="timer-text">15.0s</span>
+      </div>
+
+      <form id="word-form" class="word-form">
+        <input id="input-word" autocomplete="off" placeholder="introdu cuvântul..." maxlength="30" />
+        <button type="submit" class="btn btn-primary">SUBMIT</button>
+      </form>
+      <p id="word-error" class="word-error hidden"></p>
+    </main>
+  </div>
+</section>
+
+<!-- ============ END SCREEN ============ -->
+<section id="screen-end" class="screen">
+  <div class="end-card glass">
+    <p class="end-trophy">🏆</p>
+    <h1 id="end-winner-name">—</h1>
+    <p class="end-sub">a câștigat partida!</p>
+    <div id="end-results" class="end-results"></div>
+    <div class="end-actions">
+      <button id="btn-play-again" class="btn btn-primary btn-lg">🔄 Play Again <span id="play-again-count"></span></button>
+      <button id="btn-leave-end" class="btn btn-ghost">🏠 Leave to Main Menu</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ LEADERBOARD ============ -->
+<section id="screen-leaderboard" class="screen">
+  <header class="subbar"><button class="back-btn" data-nav="menu">← Meniu</button><h2>🏆 Leaderboard</h2></header>
+  <div id="leaderboard-list" class="leaderboard-list glass"></div>
+</section>
+
+<!-- ============ PROFILE ============ -->
+<section id="screen-profile" class="screen">
+  <header class="subbar"><button class="back-btn" data-nav="menu">← Meniu</button><h2>👤 Profil</h2></header>
+  <div id="profile-content" class="glass profile-card"></div>
+</section>
+
+<!-- ============ SETTINGS ============ -->
+<section id="screen-settings" class="screen">
+  <header class="subbar"><button class="back-btn" data-nav="menu">← Meniu</button><h2>⚙️ Setări</h2></header>
+  <div class="glass settings-card">
+    <label class="switch-row"><span>🔊 Sunete</span><input type="checkbox" id="setting-sound" /></label>
+    <label class="switch-row"><span>✨ Animații</span><input type="checkbox" id="setting-anim" /></label>
+    <label class="switch-row"><span>🌙 Dark mode</span><input type="checkbox" id="setting-dark" checked disabled /></label>
+    <p class="hint">Dark mode este tema principală a jocului Fazan.</p>
+  </div>
+</section>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>
