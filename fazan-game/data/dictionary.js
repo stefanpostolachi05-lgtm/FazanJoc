@@ -247,6 +247,133 @@ const RAW_WORDS = [
   "insa","totusi","deci","astfel","precum","daca","cand","unde","cum",
   "deoarece","fiindca","pentruca","incat","desi","chiar","macar","numai",
   "doar","abia","tocmai","iarasi","impreuna","separat",
+  // ============================================================
+  // EXTINDERE MARE — nume romanesti comune (masculine si feminine),
+  // extrem de frecvente in jocul real de Fazan, lipseau complet inainte
+  // ============================================================
+  "andrei","alex","alexandru","mihai","stefan","vlad","radu","adrian",
+  "sorin","marius","catalin","alin","dan","ion","gheorghe","vasile",
+  "nicolae","constantin","petru","paul","victor","robert","sergiu",
+  "eugen","emil","anton","cristian","dumitru","iulian","lucian","marian",
+  "nicu","octavian","ovidiu","razvan","silviu","tudor","valentin","viorel",
+  "bogdan","cosmin","florin","gabriel","daniel","cornel","costin","dorin",
+  "eduard","gigel","horia","ilie","iosif","laurentiu","liviu","mircea",
+  "petrica","remus","sabin","teodor","toma","virgil","aurel","claudiu",
+  "codrin","dinu","edi","fane","george","ghita","ilarion","jean","lucas",
+  "matei","max","nelu","oliver","pavel","relu","sandu","titus","vali",
+  "andreea","alexandra","bianca","carmen","daniela","diana","gabriela",
+  "georgiana","ioana","irina","laura","loredana","luminita","madalina",
+  "mihaela","monica","nicoleta","oana","raluca","roxana","simona",
+  "teodora","valentina","veronica","ana","maria","elena","cristina",
+  "adriana","anca","anda","antonia","beatrice","camelia","claudia",
+  "corina","cosmina","crina","delia","denisa","dorina","dana","elisa",
+  "emilia","florentina","flavia","florina","gina","ileana","iuliana",
+  "izabela","larisa","lavinia","liliana","livia","luiza","magda",
+  "marinela","mirela","narcisa","natalia","paula","ramona","renata",
+  "sabina","sanda","sonia","stela","tatiana","victoria","violeta",
+  "aida","alma","amalia","amina","angela","antoaneta","aurelia",
+  "bettina","brindusa","codruta","dumitra","emanuela","eva","felicia",
+  "geta","gherghina","harieta","iolanda","iustina","jana","kira",
+  "lenuta","letitia","lidia","marcela","margareta","marta","mia",
+  "milena","nadia","nina","olga","otilia","petronela","rodica","ruxandra",
+  "silvia","sofia","tania","vasilica","vera","viorica","zamfira","zina",
+  // ============================================================
+  // EXTINDERE MARE — cuvinte de argou / uzuale / mai putin "de dictionar",
+  // dar extrem de comune in vorbirea reala, informala
+  // ============================================================
+  "caca","cacat","tampit","prost","idiot","nesimtit","obraznic","nebun",
+  "smecher","misto","tare","fain","naspa","varza","penal","jenant",
+  "circ","haos","belea","bucluc","ghinion","noroc","chef","distractie",
+  "petrecere","gasca","gasti","galagie","zarva","tam","nam","nene",
+  "tanti","mos","mosule","frate","fratioare","surioara","puiule",
+  "dragule","scumpule","iubi","iubita","iubitul","gagica","gagiu",
+  "baiatas","fetita","copilas","matusica","bunicuta","tataie","mamaie",
+  "gargara","balarie","aiureala","tampenie","prostie","boacana",
+  "gafa","greseala","eroare","scandal","cearta","gluma","farsa",
+  "poanta","banc","bancuri","haz","haios","comic","tragic","dramatic",
+  "fabulos","incredibil","uimitor","socant","socat","uimit","mirat",
+  "curios","ciudat","bizar","straniu","misterios","enigmatic","secret",
+  "ascuns","tainic","obscur","vag","confuz","clar","evident","logic",
+  "absurd","ilogic","aiurea","degeaba","zadarnic","inutil","folositor",
+  "necesar","obligatoriu","optional","posibil","imposibil","probabil",
+  "improbabil","cert","incert","exact","aproximativ","precis","vag",
+  // ============================================================
+  // EXTINDERE MARE — cuvinte mai rare / "necunoscute" / abstracte
+  // ============================================================
+  "orb","surd","mut","chior","schiop","cocosat","pistruiat","ambitios",
+  "orchestra","dirijor","simfonie","opera","balet","recital","turneu",
+  "onoare","mandrie","invidie","gelozie","rusine","vinovatie","curaj",
+  "lasitate","generozitate","zgarcenie","modestie","aroganta","trufie",
+  "umilinta","demnitate","respect","dispret","admiratie","adoratie",
+  "devotament","loialitate","tradare","fidelitate","infidelitate",
+  "sinceritate","ipocrizie","minciuna","adevar","dreptate","nedreptate",
+  "echitate","corectitudine","onestitate","integritate","virtute","viciu",
+  "pacat","ispita","tentatie","abstinenta","cumpatare","exces","lacomie",
+  "moderatie","echilibru","armonie","dizarmonie","conflict","pace",
+  "razboi","batalie","lupta","victorie","infrangere","capitulare",
+  "rezistenta","opozitie","sustinere","alianta","coalitie","tratat",
+  "acord","dezacord","compromis","negociere","mediere","arbitraj",
+  "judecata","verdict","sentinta","pedeapsa","recompensa","rasplata",
+  "meritocratie","nobil","tradator","erou","laut","viteaz","fricos",
+  "temerar","precaut","impulsiv","calculat","spontan","planificat",
+  "organizat","haotic","metodic","dezordonat","riguros","laxist",
+  "sever","indulgent","strict","permisiv","autoritar","democratic",
+  "tiranic","despotic","liberal","conservator","traditional","modern",
+  "arhaic","futurist","retrograd","progresist","revolutionar","evolutiv",
+  "static","dinamic","stabil","instabil","volatil","constant","variabil",
+  "uniform","divers","omogen","eterogen","complex","simplu","complicat",
+  "elaborat","rafinat","sofisticat","primitiv","rudimentar","elementar",
+  "avansat","superior","inferior","mediocru","exceptional","remarcabil",
+  "ordinar","banal","obisnuit","neobisnuit","exotic","local","regional",
+  "national","international","global","universal","particular","specific",
+  "general","vag","concret","abstract","teoretic","practic","aplicat",
+  "functional","decorativ","util","estetic","artistic","stiintific",
+  "tehnic","tehnologic","industrial","comercial","economic","financiar",
+  "monetar","fiscal","juridic","legal","ilegal","legitim","ilegitim",
+  "constitutional","administrativ","birocratic","institutional",
+  "guvernamental","politic","diplomatic","militar","strategic","tactic",
+  "logistic","operational","structural","organizational","managerial",
+  "executiv","legislativ","judiciar","civil","penal","comercial",
+  // ============================================================
+  // EXTINDERE MARE — cuvinte scurte (2-3 litere), extrem de utile pentru
+  // deschideri/inchideri de lant care inainte erau blocate din lipsa
+  // ============================================================
+  "om","ou","ac","ea","ei","al","ah","oh","hei","na","ba","da","nu",
+  "si","tu","eu","noi","voi","in","la","cu","pe","de","din","spre",
+  "ok","ii","ie","io","ia","ala","asa","asta","aia","ele","eu","el",
+  "un","o","va","ma","te","se","ne","le","mi","ti","si","or","ar",
+  "vom","veti","vor","fu","fusei","era","eram","erai","fost","fiind",
+  // ============================================================
+  // EXTINDERE MARE — substantive obisnuite din multe domenii,
+  // insuficient acoperite pana acum
+  // ============================================================
+  "orb","ureche","sprancene","umeri","incheietura","pumn","talpa",
+  "genunchi","coapsa","abdomen","piept","clavicula","coloana","craniu",
+  "maxilar","obraji","tample","ceafa","subsuoara","cot","index",
+  "degetar","unghie","cuticula","calus","bataturi","cicatrice","aluniță",
+  "riduri","pistrui","tatuaj","piercing","machiaj","ruj","fond",
+  "pudra","rimel","fard","parfum","deodorant","crema","lotiune",
+  "sampon","balsam","gel","spuma","ceara","pieptene","perie","foarfeca",
+  "aparat","uscator","placa","ondulator","oglinda","chiuveta","cada",
+  "dus","robinet","teava","canalizare","instalatie","electricitate",
+  "gaz","incalzire","climatizare","ventilatie","izolatie","fundatie",
+  "structura","schela","macara","excavator","buldozer","betoniera",
+  "caramida","ciment","var","nisip","pietris","tabla","tigla","dranita",
+  "cherestea","scandura","placaj","furnir","lac","vopsea","diluant",
+  "pensula","rola","spatula","surubelnita","cheie","cioc","patent",
+  "menghina","nicovala","ciocan","fierastrau","rangla","daltile",
+  "burghiu","gaurit","insurubat","desurubat","masurat","taiat","lipit",
+  "sudat","nituit","vopsit","lustruit","slefuit","polizat","frezat",
+  "strunjit","forjat","turnat","laminat","extrudat","injectat",
+  // forme cu articol hotarat, foarte comune in vorbire ("omul", "caiul"...)
+  "omul","baiatul","fetita","copilul","barbatul","femeia","caiul","cainele",
+  "pisica","ursul","lupul","vulpea","iepurele","soarele","luna","cerul",
+  "pamantul","apa","focul","vantul","muntele","raul","marea","padurea",
+  "orasul","satul","drumul","podul","casa","masina","cartea","mesajul",
+  "timpul","anul","ziua","noaptea","dimineata","seara","prietenul",
+  "dusmanul","regele","printul","printesa","imparatul","poporul",
+  "tara","lumea","viata","moartea","dragostea","ura","fericirea",
+  "tristetea","adevarul","minciuna","dreptatea","libertatea",
 ];
 
 // Normalizeaza un cuvant: elimina spatii, litere mici, si elimina
@@ -271,27 +398,43 @@ function normalizeWord(word) {
 const WORD_SET = new Set(RAW_WORDS.map(normalizeWord).filter(Boolean));
 const WORD_LIST = Array.from(WORD_SET);
 
-// Harta: prefix de 2 litere -> lista de cuvinte care incep cu acel prefix
-const PREFIX_MAP = new Map();
-for (const w of WORD_LIST) {
-  if (w.length < 3) continue;
-  const p = w.slice(0, 2);
-  if (!PREFIX_MAP.has(p)) PREFIX_MAP.set(p, []);
-  PREFIX_MAP.get(p).push(w);
+// Harta prefixe pentru fiecare lungime de lant suportata (2, 3, 4 litere) -
+// game mode-uri diferite ("Clasic" = 2, "Greu" = 3, "Expert" = 4).
+const PREFIX_MAPS = { 2: new Map(), 3: new Map(), 4: new Map() };
+for (const n of [2, 3, 4]) {
+  for (const w of WORD_LIST) {
+    if (w.length < n) continue;
+    const p = w.slice(0, n);
+    if (!PREFIX_MAPS[n].has(p)) PREFIX_MAPS[n].set(p, []);
+    PREFIX_MAPS[n].get(p).push(w);
+  }
 }
+const PREFIX_MAP = PREFIX_MAPS[2]; // pastrat pentru compatibilitate
 
-function getLastTwo(word) {
+// Cateva terminatii scurte, foarte comune, despre care STIM ca nu au NICIUN
+// continuator real in romana (ex. "nt" - nu exista cuvinte romanesti care
+// sa inceapa cu "nt"). Le blocam explicit, in plus fata de verificarea
+// automata prin dictionar, ca sa fim siguri ca nu scapa niciodata.
+const KNOWN_DEAD_ENDINGS = new Set(["nt", "mp", "ct", "pt", "xt", "ft"]);
+
+function getLastN(word, n) {
   const w = normalizeWord(word);
-  if (w.length < 2) return null;
-  return w.slice(-2);
+  if (w.length < n) return null;
+  return w.slice(-n);
+}
+function getLastTwo(word) {
+  return getLastN(word, 2);
 }
 
 // Un cuvant "inchide" jocul (nu este permis) daca nu exista NICI UN alt
-// cuvant in dictionar care sa inceapa cu ultimele lui doua litere.
-function endsGame(word) {
-  const last2 = getLastTwo(word);
-  if (!last2) return true;
-  const candidates = PREFIX_MAP.get(last2) || [];
+// cuvant in dictionar care sa inceapa cu ultimele lui N litere (N = lungimea
+// lantului pentru game mode-ul curent: 2, 3 sau 4).
+function endsGame(word, chainLength = 2) {
+  const lastN = getLastN(word, chainLength);
+  if (!lastN) return true;
+  if (chainLength === 2 && KNOWN_DEAD_ENDINGS.has(lastN)) return true;
+  const map = PREFIX_MAPS[chainLength] || PREFIX_MAPS[2];
+  const candidates = map.get(lastN) || [];
   const others = candidates.filter((c) => c !== normalizeWord(word));
   return others.length === 0;
 }
@@ -307,11 +450,11 @@ function isRealWord(word) {
  * @param {Set<string>} usedWords - cuvinte deja folosite in partida (normalizate)
  * @returns {{valid: boolean, reason?: string, normalized?: string}}
  */
-function validateWord(rawWord, requiredPrefix, usedWords) {
+function validateWord(rawWord, requiredPrefix, usedWords, chainLength = 2) {
   const word = normalizeWord(rawWord);
 
-  if (!word || word.length < 3) {
-    return { valid: false, reason: "Cuvantul trebuie sa aiba cel putin 3 litere." };
+  if (!word || word.length < 2) {
+    return { valid: false, reason: "Cuvantul trebuie sa aiba cel putin 2 litere." };
   }
   if (!isRealWord(word)) {
     return { valid: false, reason: "Cuvantul nu a fost gasit in dictionar." };
@@ -325,7 +468,7 @@ function validateWord(rawWord, requiredPrefix, usedWords) {
   if (usedWords && usedWords.has(word)) {
     return { valid: false, reason: "Acest cuvant a fost deja folosit in aceasta partida." };
   }
-  if (endsGame(word)) {
+  if (endsGame(word, chainLength)) {
     return {
       valid: false,
       reason: "Acest cuvant incheie jocul (nu exista niciun cuvant continuator) si nu este permis.",
@@ -335,12 +478,13 @@ function validateWord(rawWord, requiredPrefix, usedWords) {
 }
 
 // Alege un cuvant valid pentru un bot, dat un prefix cerut si cuvintele deja folosite.
-function pickBotWord(requiredPrefix, usedWords, difficulty) {
+function pickBotWord(requiredPrefix, usedWords, difficulty, chainLength = 2) {
+  const map = PREFIX_MAPS[chainLength] || PREFIX_MAPS[2];
   let candidates = requiredPrefix
-    ? (PREFIX_MAP.get(requiredPrefix) || [])
+    ? (map.get(requiredPrefix) || [])
     : WORD_LIST;
 
-  candidates = candidates.filter((w) => !usedWords.has(w) && !endsGame(w));
+  candidates = candidates.filter((w) => !usedWords.has(w) && !endsGame(w, chainLength));
 
   if (candidates.length === 0) return null;
 
@@ -358,6 +502,7 @@ module.exports = {
   PREFIX_MAP,
   normalizeWord,
   getLastTwo,
+  getLastN,
   endsGame,
   isRealWord,
   validateWord,

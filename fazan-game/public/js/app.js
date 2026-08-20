@@ -521,7 +521,8 @@
   document.getElementById("btn-create-room").addEventListener("click", () => {
     const name = document.getElementById("input-room-name").value.trim();
     const isPublic = document.getElementById("input-room-public").checked;
-    state.socket.emit("create_room", { name, isPublic }, (res) => {
+    const chainLength = parseInt(document.getElementById("input-room-chain").value, 10);
+    state.socket.emit("create_room", { name, isPublic, chainLength }, (res) => {
       if (!res.ok) return toast(res.error || "Eroare la crearea camerei.");
       state.room = res.room;
       renderLobby(res.room);
@@ -898,6 +899,7 @@
   // ------------------------------------------------------------------
   let spDifficulty = "medium";
   let spBotCount = 1;
+  let spChainLength = 2;
 
   document.querySelectorAll("[data-diff]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -913,8 +915,16 @@
       spBotCount = parseInt(btn.getAttribute("data-bots"), 10);
     });
   });
+  document.querySelectorAll("[data-chain]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("[data-chain]").forEach((b) => b.classList.remove("selected"));
+      btn.classList.add("selected");
+      spChainLength = parseInt(btn.getAttribute("data-chain"), 10);
+    });
+  });
   document.querySelector('[data-diff="medium"]').classList.add("selected");
   document.querySelector('[data-bots="1"]').classList.add("selected");
+  document.querySelector('[data-chain="2"]').classList.add("selected");
 
   async function ensureDictionary() {
     if (state.dictionaryWords.length) return;
@@ -924,7 +934,8 @@
     buildPrefixMap();
   }
 
-  let PREFIX_MAP = new Map();
+  let PREFIX_MAPS = { 2: new Map(), 3: new Map(), 4: new Map() };
+  const KNOWN_DEAD_ENDINGS = new Set(["nt", "mp", "ct", "pt", "xt", "ft"]);
   // Acelasi fix ca in data/dictionary.js: eliminam diacriticele la
   // comparatie, ca "măgar" si "magar" sa se potriveasca amandoua cu
   // intrarea din dictionar (care e scrisa fara diacritice).
@@ -935,31 +946,37 @@
       .replace(/[^a-z]/g, "");
   }
   function buildPrefixMap() {
-    PREFIX_MAP = new Map();
-    for (const w of state.dictionaryWords) {
-      if (w.length < 3) continue;
-      const p = w.slice(0, 2);
-      if (!PREFIX_MAP.has(p)) PREFIX_MAP.set(p, []);
-      PREFIX_MAP.get(p).push(w);
+    PREFIX_MAPS = { 2: new Map(), 3: new Map(), 4: new Map() };
+    for (const n of [2, 3, 4]) {
+      for (const w of state.dictionaryWords) {
+        if (w.length < n) continue;
+        const p = w.slice(0, n);
+        if (!PREFIX_MAPS[n].has(p)) PREFIX_MAPS[n].set(p, []);
+        PREFIX_MAPS[n].get(p).push(w);
+      }
     }
   }
-  function spEndsGame(word) {
-    const last2 = word.slice(-2);
-    const cands = (PREFIX_MAP.get(last2) || []).filter((c) => c !== word);
+  function spEndsGame(word, chainLength) {
+    const n = chainLength || 2;
+    const lastN = word.slice(-n);
+    if (lastN.length < n) return true;
+    if (n === 2 && KNOWN_DEAD_ENDINGS.has(lastN)) return true;
+    const cands = (PREFIX_MAPS[n].get(lastN) || []).filter((c) => c !== word);
     return cands.length === 0;
   }
-  function spValidate(raw, prefix, used) {
+  function spValidate(raw, prefix, used, chainLength) {
     const w = normalizeWord(raw);
-    if (!w || w.length < 3) return { valid: false, reason: "Cuvantul trebuie sa aiba cel putin 3 litere." };
+    if (!w || w.length < 2) return { valid: false, reason: "Cuvantul trebuie sa aiba cel putin 2 litere." };
     if (!state.dictionaryWords.includes(w)) return { valid: false, reason: "Cuvantul nu a fost gasit in dictionar." };
     if (prefix && !w.startsWith(prefix)) return { valid: false, reason: `Cuvantul trebuie sa inceapa cu "${prefix.toUpperCase()}".` };
     if (used.has(w)) return { valid: false, reason: "Acest cuvant a fost deja folosit in aceasta partida." };
-    if (spEndsGame(w)) return { valid: false, reason: "Acest cuvant incheie jocul si nu este permis." };
+    if (spEndsGame(w, chainLength)) return { valid: false, reason: "Acest cuvant incheie jocul si nu este permis." };
     return { valid: true, normalized: w };
   }
-  function spPickBotWord(prefix, used, difficulty) {
-    let cands = prefix ? (PREFIX_MAP.get(prefix) || []) : state.dictionaryWords;
-    cands = cands.filter((w) => !used.has(w) && !spEndsGame(w));
+  function spPickBotWord(prefix, used, difficulty, chainLength) {
+    const n = chainLength || 2;
+    let cands = prefix ? (PREFIX_MAPS[n].get(prefix) || []) : state.dictionaryWords;
+    cands = cands.filter((w) => !used.has(w) && !spEndsGame(w, n));
     if (!cands.length) return null;
     const failChance = difficulty === "easy" ? 0.35 : difficulty === "medium" ? 0.12 : 0.02;
     if (Math.random() < failChance) return null;
@@ -987,6 +1004,7 @@
       prefix: null,
       round: 1,
       difficulty: spDifficulty,
+      chainLength: spChainLength,
       timeout: null,
     };
     state.room = {
@@ -1026,6 +1044,16 @@
     const current = state.sp.players.find((p) => p.id === currentId);
     state.turnEndsAt = Date.now() + 15000;
 
+    // "Turn token" - fiecare tura primeste un numar unic. Orice timer/callback
+    // intarziat (bot care nu gaseste cuvant, typing-ul botului etc.) verifica
+    // acest token inainte sa actioneze - daca nu mai corespunde turei curente,
+    // e ignorat. Asta previne BUG-UL GRAV unde un timer "fantoma" ramas din
+    // urma (de ex. cand botul nu gasea niciun cuvant valid) lovea cu
+    // "Timpul a expirat!" un jucator complet diferit, mult mai tarziu,
+    // provocand eliminari in cascada dupa multe runde.
+    state.sp.turnToken = (state.sp.turnToken || 0) + 1;
+    const myToken = state.sp.turnToken;
+
     onTurnChanged({
       currentPlayerId: currentId,
       lastWord: state.sp.lastWord,
@@ -1034,33 +1062,49 @@
       round: state.sp.round,
     });
 
-    state.sp.timeout = setTimeout(() => spHandleTimeout(), 15300);
+    state.sp.timeout = setTimeout(() => {
+      if (state.sp.turnToken !== myToken) return; // timer expirat pentru o tura care nu mai e curenta
+      spHandleTimeout();
+    }, 15300);
 
     if (current.isBot) {
       // Bot "se gandeste" putin inainte sa inceapa (nu raspunde instant),
       // apoi scrie vizibil litera cu litera - tot procesul dureaza sub 3s.
       const thinkDelay = 300 + Math.random() * 500;
-      setTimeout(() => spBotStartTyping(current), thinkDelay);
+      setTimeout(() => {
+        if (state.sp.turnToken === myToken) spBotStartTyping(current, myToken);
+      }, thinkDelay);
     }
   }
 
-  function spBotStartTyping(bot) {
+  function spBotStartTyping(bot, token) {
+    if (state.sp.turnToken !== token) return;
     if (state.sp.order[state.sp.currentIndex] !== bot.id) return;
-    const word = spPickBotWord(state.sp.prefix, state.sp.used, state.sp.difficulty);
-    if (!word) { spHandleTimeout(); return; }
+    const word = spPickBotWord(state.sp.prefix, state.sp.used, state.sp.difficulty, state.sp.chainLength);
+    if (!word) {
+      // FIX: inainte, aici lipsea acest clearTimeout - timer-ul normal de
+      // 15s ramanea sa "atarne" si lovea mai tarziu un jucator gresit.
+      clearTimeout(state.sp.timeout);
+      spHandleTimeout();
+      return;
+    }
 
     const totalTypingMs = Math.min(1400, 110 * word.length);
     const perLetter = totalTypingMs / word.length;
     let shown = "";
     let i = 0;
     const typer = setInterval(() => {
-      if (state.sp.order[state.sp.currentIndex] !== bot.id) { clearInterval(typer); return; }
+      if (state.sp.turnToken !== token || state.sp.order[state.sp.currentIndex] !== bot.id) {
+        clearInterval(typer);
+        return;
+      }
       shown += word[i];
       i++;
       showTypingPreview(bot.id, shown);
       if (i >= word.length) {
         clearInterval(typer);
         setTimeout(() => {
+          if (state.sp.turnToken !== token) return;
           clearTypingPreview();
           if (state.sp.order[state.sp.currentIndex] === bot.id) spSubmitWordInternal(bot.id, word);
         }, 150);
@@ -1103,7 +1147,7 @@
     const currentId = state.sp.order[state.sp.currentIndex];
     if (currentId !== playerId) return;
     const player = state.sp.players.find((p) => p.id === playerId);
-    const result = spValidate(raw, state.sp.prefix, state.sp.used);
+    const result = spValidate(raw, state.sp.prefix, state.sp.used, state.sp.chainLength);
     if (!result.valid) {
       onWordRejected({ playerId, reason: result.reason });
       return;
@@ -1111,7 +1155,7 @@
     clearTimeout(state.sp.timeout);
     state.sp.used.add(result.normalized);
     state.sp.lastWord = result.normalized;
-    state.sp.prefix = result.normalized.slice(-2);
+    state.sp.prefix = result.normalized.slice(-(state.sp.chainLength || 2));
     player.wordsThisMatch += 1;
     onWordAccepted({ word: result.normalized });
     spAdvanceTurn();
@@ -1123,6 +1167,19 @@
     const prevStreak = parseInt(localStorage.getItem("fazan_sp_streak") || "0", 10);
     const newStreak = iWon ? prevStreak + 1 : 0;
     localStorage.setItem("fazan_sp_streak", String(newStreak));
+
+    // Raporteaza rezultatul catre server, ca profilul (meciuri/victorii/
+    // win rate) sa se actualizeze si pentru Singleplayer, nu doar Multiplayer -
+    // singleplayer rulează integral local si altfel serverul n-ar afla niciodata.
+    if (!state.isGuest && state.token) {
+      const me = state.sp.players.find((p) => p.id === "me");
+      fetch("/api/record-singleplayer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: state.token, won: iWon, wordsPlayed: me ? me.wordsThisMatch : 0 }),
+      }).catch((err) => console.error("Nu am putut salva rezultatul pe server:", err));
+    }
+
     onGameOver({
       winnerId: winner ? winner.id : null,
       winnerNickname: winner ? winner.nickname : null,

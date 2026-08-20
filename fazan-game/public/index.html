@@ -144,6 +144,12 @@
       <button class="diff-btn" data-bots="2"><b>2 boți</b><span>Trio</span></button>
       <button class="diff-btn" data-bots="3"><b>3 boți</b><span>Cameră plină</span></button>
     </div>
+    <p class="muted" style="margin-top:18px">Game mode:</p>
+    <div class="diff-grid">
+      <button class="diff-btn" data-chain="2"><b>Clasic</b><span>ultimele 2 litere</span></button>
+      <button class="diff-btn" data-chain="3"><b>Greu</b><span>ultimele 3 litere</span></button>
+      <button class="diff-btn" data-chain="4"><b>Expert</b><span>ultimele 4 litere</span></button>
+    </div>
     <button id="btn-start-sp" class="btn btn-primary btn-lg" style="margin-top:20px">Începe jocul</button>
   </div>
 </section>
@@ -156,6 +162,14 @@
       <h3>Creează cameră</h3>
       <div class="field"><label>Nume cameră (opțional)</label><input id="input-room-name" placeholder="Camera lui..." /></div>
       <label class="checkbox-row"><input type="checkbox" id="input-room-public" checked /> Cameră publică (vizibilă tuturor)</label>
+      <div class="field">
+        <label>Game mode</label>
+        <select id="input-room-chain">
+          <option value="2" selected>Clasic — ultimele 2 litere</option>
+          <option value="3">Greu — ultimele 3 litere</option>
+          <option value="4">Expert — ultimele 4 litere</option>
+        </select>
+      </div>
       <button id="btn-create-room" class="btn btn-primary">Creează</button>
     </div>
     <div class="glass mp-panel">
