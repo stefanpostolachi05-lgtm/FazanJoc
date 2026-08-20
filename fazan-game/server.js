@@ -16,6 +16,7 @@ const {
   pickBotWord,
   normalizeWord,
   getLastTwo,
+  getLastN,
 } = require("./data/dictionary");
 
 const PORT = process.env.PORT || 3000;
@@ -77,11 +78,95 @@ const io = new Server(server, {
 });
 
 // ---------------------------------------------------------------------------
-// Persistenta simpla (fisier JSON) pentru profile / leaderboard.
-// NOTA: pe hosting-uri cu disc efemer (ex. Render free tier fara disk
-// persistent), acest fisier se poate reseta la fiecare redeploy. Pentru
-// productie serioasa, inlocuiti cu o baza de date reala (Postgres, etc.)
 // ---------------------------------------------------------------------------
+// Persistenta profile/leaderboard.
+//
+// Implicit: fisier JSON local (data/players.json). Simplu, dar pe hosting cu
+// disc efemer (ex. Render free tier) se REseteaza la fiecare redeploy -
+// e o limitare documentata oficial de Render: "Free web services cannot
+// attach disks" / "any changes to local files are lost every redeploy".
+//
+// Optional: daca setati SUPABASE_URL + SUPABASE_SERVICE_KEY in environment,
+// serverul scrie/citeste automat printr-o baza de date Supabase reala
+// (gratuita, permanenta) prin REST API simplu (fetch), fara librarii noi.
+// Vezi README.md, sectiunea "Persistenta permanenta cu Supabase", pentru
+// pasii exacti de configurare (5 minute, nu necesita cod).
+// ---------------------------------------------------------------------------
+const SUPABASE_URL = (process.env.SUPABASE_URL || "").replace(/\/$/, "");
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || "";
+const useSupabase = Boolean(SUPABASE_URL && SUPABASE_KEY);
+
+function toSupabaseRow(p) {
+  return {
+    email: p.email,
+    nickname: p.nickname,
+    password_hash: p.passwordHash || null,
+    password_salt: p.passwordSalt || null,
+    wins: p.wins || 0,
+    matches: p.matches || 0,
+    losses: p.losses || 0,
+    best_streak: p.bestStreak || 0,
+    current_streak: p.currentStreak || 0,
+    words_played: p.wordsPlayed || 0,
+    score: p.score || 0,
+  };
+}
+function fromSupabaseRow(r) {
+  return {
+    email: r.email,
+    nickname: r.nickname,
+    passwordHash: r.password_hash,
+    passwordSalt: r.password_salt,
+    wins: r.wins || 0,
+    matches: r.matches || 0,
+    losses: r.losses || 0,
+    bestStreak: r.best_streak || 0,
+    currentStreak: r.current_streak || 0,
+    wordsPlayed: r.words_played || 0,
+    score: r.score || 0,
+  };
+}
+
+async function supabaseUpsertPlayer(p) {
+  if (!useSupabase) return;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/players`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates",
+      },
+      body: JSON.stringify([toSupabaseRow(p)]),
+    });
+    if (!res.ok) console.error("Supabase upsert a esuat:", res.status, await res.text());
+  } catch (err) {
+    console.error("Supabase upsert - eroare de retea:", err.message);
+  }
+}
+
+async function supabaseLoadAllPlayers() {
+  if (!useSupabase) return {};
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/players?select=*`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+    });
+    if (!res.ok) {
+      console.error("Supabase load a esuat:", res.status, await res.text());
+      return {};
+    }
+    const rows = await res.json();
+    const db = {};
+    for (const r of rows) db[r.email] = fromSupabaseRow(r);
+    console.log(`Supabase: incarcate ${rows.length} conturi.`);
+    return db;
+  } catch (err) {
+    console.error("Supabase load - eroare de retea:", err.message);
+    return {};
+  }
+}
+
 function loadPlayers() {
   try {
     return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
@@ -96,7 +181,17 @@ function savePlayers(data) {
     console.error("Nu s-a putut salva players.json:", e.message);
   }
 }
-let PLAYERS_DB = loadPlayers(); // keyed by email (lowercase)
+// Salveaza un singur cont, in ambele locuri disponibile: fisierul local
+// (mereu, ca fallback rapid) + Supabase (daca e configurat, pentru
+// persistenta reala peste redeploy-uri).
+function persistPlayer(email) {
+  savePlayers(PLAYERS_DB);
+  if (useSupabase && PLAYERS_DB[email]) {
+    supabaseUpsertPlayer(PLAYERS_DB[email]); // async, nu blocheaza raspunsul catre client
+  }
+}
+
+let PLAYERS_DB = loadPlayers(); // keyed by email (lowercase) - populat complet mai jos, la boot
 
 // Foloseste doar pentru conturi deja existente (dupa signup) — NU mai
 // creeaza conturi noi implicit, ca sa nu ocolim parola.
@@ -127,7 +222,7 @@ function recordMatchResult({ email, nickname, won, wordsPlayed }) {
     profile.currentStreak = 0;
     profile.score += 10;
   }
-  savePlayers(PLAYERS_DB);
+  persistPlayer(email);
 }
 
 // ---------------------------------------------------------------------------
@@ -174,6 +269,25 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email || "");
 }
 
+// Singleplayer ruleaza integral in browser (fara server) - de aceea are
+// nevoie de un endpoint separat prin care sa raporteze rezultatul, ca
+// profilul (meciuri, victorii, win rate) sa se actualizeze si pentru
+// meciurile jucate impotriva botilor, nu doar cele din multiplayer.
+app.post("/api/record-singleplayer", (req, res) => {
+  const { token, won, wordsPlayed } = req.body || {};
+  const decoded = token ? verifyToken(token) : null;
+  if (!decoded || !decoded.email || !PLAYERS_DB[decoded.email]) {
+    return res.status(401).json({ error: "Sesiune invalida - rezultatul nu a putut fi salvat." });
+  }
+  recordMatchResult({
+    email: decoded.email,
+    nickname: PLAYERS_DB[decoded.email].nickname,
+    won: Boolean(won),
+    wordsPlayed: Number(wordsPlayed) || 0,
+  });
+  res.json({ ok: true, profile: publicProfile(PLAYERS_DB[decoded.email]) });
+});
+
 app.post("/api/signup", (req, res) => {
   const { email, nickname, password } = req.body || {};
   if (!isValidEmail(email)) return res.status(400).json({ error: "Adresa de email nu este valida." });
@@ -185,10 +299,17 @@ app.post("/api/signup", (req, res) => {
   if (PLAYERS_DB[key]) {
     return res.status(409).json({ error: "Exista deja un cont cu acest email. Incearca sa te conectezi." });
   }
+  const trimmedNickname = nickname.toString().trim().slice(0, 20);
+  const nicknameTaken = Object.values(PLAYERS_DB).some(
+    (p) => p.nickname.toLowerCase() === trimmedNickname.toLowerCase()
+  );
+  if (nicknameTaken) {
+    return res.status(409).json({ error: "Acest nickname e deja folosit de altcineva. Alege altul." });
+  }
   const { salt, hash } = hashPassword(password);
   PLAYERS_DB[key] = {
     email: key,
-    nickname: nickname.toString().trim().slice(0, 20),
+    nickname: trimmedNickname,
     passwordSalt: salt,
     passwordHash: hash,
     wins: 0,
@@ -199,7 +320,7 @@ app.post("/api/signup", (req, res) => {
     wordsPlayed: 0,
     score: 0,
   };
-  savePlayers(PLAYERS_DB);
+  persistPlayer(key);
   const token = signToken(key);
   res.json({ token, profile: publicProfile(PLAYERS_DB[key]) });
 });
@@ -265,6 +386,7 @@ function roomSnapshot(room) {
     players: serializePlayers(room),
     hostId: room.hostId,
     round: room.round,
+    chainLength: room.chainLength || 2,
   };
 }
 
@@ -274,7 +396,7 @@ function broadcastRoom(room) {
 
 const AVATAR_COLORS = ["#7C5CFF", "#FF6B9D", "#3EDBB5", "#FFB454", "#5FA8FF"];
 
-function createRoom({ name, isPublic, hostSocket, hostNickname, hostEmail }) {
+function createRoom({ name, isPublic, hostSocket, hostNickname, hostEmail, chainLength }) {
   const code = makeRoomCode();
   const room = {
     code,
@@ -292,6 +414,7 @@ function createRoom({ name, isPublic, hostSocket, hostNickname, hostEmail }) {
     turnEndsAt: null,
     round: 1,
     playAgainVotes: new Set(),
+    chainLength: [2, 3, 4].includes(chainLength) ? chainLength : 2, // game mode: Clasic(2) / Greu(3) / Expert(4)
   };
   room.players.set(hostSocket.id, {
     id: hostSocket.id,
@@ -337,6 +460,12 @@ function startTurn(room) {
   if (!current) return;
 
   room.turnEndsAt = Date.now() + TURN_SECONDS * 1000;
+  // Acelasi mecanism de "turn token" ca in singleplayer (public/js/app.js) -
+  // previne un bug grav unde un timer intarziat (bot fara cuvant valid)
+  // putea lovi cu "timpul a expirat" un jucator complet diferit, mult mai
+  // tarziu, provocand eliminari in cascada.
+  room.turnToken = (room.turnToken || 0) + 1;
+  const myToken = room.turnToken;
 
   io.to(room.code).emit("turn_changed", {
     currentPlayerId: currentId,
@@ -346,22 +475,29 @@ function startTurn(room) {
     round: room.round,
   });
 
-  room.turnTimer = setTimeout(() => handleTimeout(room), TURN_SECONDS * 1000 + 300);
+  room.turnTimer = setTimeout(() => {
+    if (room.turnToken !== myToken) return;
+    handleTimeout(room);
+  }, TURN_SECONDS * 1000 + 300);
 
   if (current.isBot) {
     const delay = 1200 + Math.random() * 2500;
-    setTimeout(() => botPlay(room, current), delay);
+    setTimeout(() => {
+      if (room.turnToken === myToken) botPlay(room, current, myToken);
+    }, delay);
   }
 }
 
-function botPlay(room, bot) {
+function botPlay(room, bot, token) {
   if (room.state !== "playing") return;
+  if (room.turnToken !== token) return;
   if (room.order[room.currentIndex] !== bot.id) return;
   const difficulty = room.difficulty || "medium";
-  const word = pickBotWord(room.requiredPrefix, room.usedWords, difficulty);
+  const word = pickBotWord(room.requiredPrefix, room.usedWords, difficulty, room.chainLength);
   if (word) {
     submitWordInternal(room, bot.id, word);
   } else {
+    clearTurnTimer(room); // FIX: nu mai lasam timer-ul vechi sa "atarne"
     handleTimeout(room);
   }
 }
@@ -414,7 +550,7 @@ function submitWordInternal(room, playerId, rawWord) {
   const player = room.players.get(playerId);
   if (!player || !player.alive) return { valid: false, reason: "Nu mai esti in joc." };
 
-  const result = validateWord(rawWord, room.requiredPrefix, room.usedWords);
+  const result = validateWord(rawWord, room.requiredPrefix, room.usedWords, room.chainLength);
   if (!result.valid) {
     io.to(room.code).emit("word_rejected", { playerId, reason: result.reason, attempted: rawWord });
     return result;
@@ -423,7 +559,7 @@ function submitWordInternal(room, playerId, rawWord) {
   clearTurnTimer(room);
   room.usedWords.add(result.normalized);
   room.lastWord = result.normalized;
-  room.requiredPrefix = getLastTwo(result.normalized);
+  room.requiredPrefix = getLastN(result.normalized, room.chainLength);
   player.wordsThisMatch = (player.wordsThisMatch || 0) + 1;
 
   io.to(room.code).emit("word_accepted", {
@@ -566,7 +702,7 @@ io.on("connection", (socket) => {
     socket.emit("public_rooms", { rooms: publicRoomList() });
   });
 
-  socket.on("create_room", ({ name, isPublic }, cb) => {
+  socket.on("create_room", ({ name, isPublic, chainLength }, cb) => {
     if (!socket.data.authenticated) {
       return cb && cb({ ok: false, error: "Multiplayer este disponibil doar pentru conturi autentificate. Creează-ți un cont sau conectează-te." });
     }
@@ -576,6 +712,7 @@ io.on("connection", (socket) => {
       hostSocket: socket,
       hostNickname: socket.data.nickname || "Gazda",
       hostEmail: socket.data.email,
+      chainLength,
     });
     socket.join(room.code);
     socket.data.roomCode = room.code;
@@ -702,7 +839,9 @@ io.on("connection", (socket) => {
     if (room.state === "playing") {
       const currentId = room.order[room.currentIndex];
       if (currentId === socket.id && player.alive) {
+        const tokenAtDisconnect = room.turnToken;
         setTimeout(() => {
+          if (room.turnToken !== tokenAtDisconnect) return; // tura s-a schimbat deja intre timp
           if (!player.connected && player.alive && room.order[room.currentIndex] === socket.id) {
             handleTimeout(room);
           }
@@ -731,6 +870,14 @@ io.on("connection", (socket) => {
   }
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`Fazan server ruleaza pe portul ${PORT}`);
+  if (useSupabase) {
+    console.log("Supabase configurat - incarc conturile salvate...");
+    const remote = await supabaseLoadAllPlayers();
+    Object.assign(PLAYERS_DB, remote);
+    console.log("Conturi disponibile dupa incarcare Supabase:", Object.keys(PLAYERS_DB).length);
+  } else {
+    console.log("Supabase NECONFIGURAT - folosesc doar fisierul local data/players.json (se poate reseta la redeploy pe Render free tier).");
+  }
 });
