@@ -15,6 +15,10 @@
 
 <div id="toast-root" class="toast-root"></div>
 <div id="confetti-root" class="confetti-root"></div>
+<div id="last-updated-badge" class="last-updated-badge">
+  <span class="live-dot"></span>
+  <span id="last-updated-text">se conectează...</span>
+</div>
 
 <!-- ============ WELCOME ============ -->
 <section id="screen-welcome" class="screen active">
@@ -302,8 +306,19 @@
     </div>
     <label class="switch-row"><span>✨ Animații</span><input type="checkbox" id="setting-anim" /></label>
     <label class="switch-row"><span>⌨️ Arată ce scrie adversarul, în timp real</span><input type="checkbox" id="setting-typing" /></label>
+    <label class="switch-row"><span>🎯 Notificări cu vibrare la eliminare</span><input type="checkbox" id="setting-vibrate" /></label>
+    <label class="switch-row"><span>⏱️ Timer mai vizibil (mărit)</span><input type="checkbox" id="setting-bigtimer" /></label>
+    <label class="switch-row"><span>🐢 Reduce animațiile (accesibilitate)</span><input type="checkbox" id="setting-reduced-motion" /></label>
     <label class="switch-row"><span>🌙 Dark mode</span><input type="checkbox" id="setting-dark" checked disabled /></label>
     <p class="hint">Dark mode este tema principală a jocului Fazan.</p>
+
+    <div class="settings-divider"></div>
+    <span class="small-label muted" style="display:block; margin-bottom:10px;">FUNDAL DE JOC</span>
+    <div class="theme-swatches" id="bg-theme-swatches">
+      <button class="theme-swatch bg-swatch" data-bg="particles" title="Particule">✨</button>
+      <button class="theme-swatch bg-swatch" data-bg="letters" title="Litere plutitoare">🔤</button>
+      <button class="theme-swatch bg-swatch" data-bg="none" title="Simplu">⬛</button>
+    </div>
 
     <div class="settings-divider"></div>
 

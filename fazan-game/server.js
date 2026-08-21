@@ -228,6 +228,12 @@ function recordMatchResult({ email, nickname, won, wordsPlayed }) {
 // ---------------------------------------------------------------------------
 // API REST
 // ---------------------------------------------------------------------------
+const SERVER_STARTED_AT = new Date().toISOString();
+
+app.get("/api/meta", (req, res) => {
+  res.json({ serverStartedAt: SERVER_STARTED_AT, wordCount: WORD_LIST.length });
+});
+
 app.get("/api/dictionary", (req, res) => {
   res.json({ words: WORD_LIST });
 });
@@ -481,7 +487,7 @@ function startTurn(room) {
   }, TURN_SECONDS * 1000 + 300);
 
   if (current.isBot) {
-    const delay = 1200 + Math.random() * 2500;
+    const delay = 900 + Math.random() * 1800;
     setTimeout(() => {
       if (room.turnToken === myToken) botPlay(room, current, myToken);
     }, delay);

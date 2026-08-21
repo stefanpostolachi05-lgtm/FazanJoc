@@ -19,6 +19,7 @@
     settings: {
       sound: localStorage.getItem("fazan_sound") !== "0",
       anim: localStorage.getItem("fazan_anim") !== "0",
+      bgMode: localStorage.getItem("fazan_bg_mode") || "letters",
     },
     sp: null, // stare singleplayer locala
     timerInterval: null,
@@ -144,6 +145,7 @@
     const ctx = canvas.getContext("2d");
     let particles = [];
     const letters = "AĂÂBCDEFGHIÎJKLMNOPQRSȘTȚUVWXYZ".split("");
+    const dotColors = ["124,92,255", "62,219,181", "255,180,84", "255,107,157"];
 
     function resize() {
       canvas.width = window.innerWidth;
@@ -154,31 +156,42 @@
 
     function spawn() {
       particles = [];
+      if (state.settings.bgMode === "none") return;
       const count = Math.min(28, Math.floor((canvas.width * canvas.height) / 45000));
       for (let i = 0; i < count; i++) {
         particles.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height,
           letter: letters[Math.floor(Math.random() * letters.length)],
-          size: 14 + Math.random() * 20,
+          color: dotColors[Math.floor(Math.random() * dotColors.length)],
+          size: state.settings.bgMode === "particles" ? 2 + Math.random() * 4 : 14 + Math.random() * 20,
           speed: 0.15 + Math.random() * 0.3,
           drift: (Math.random() - 0.5) * 0.3,
-          opacity: 0.04 + Math.random() * 0.07,
+          opacity: state.settings.bgMode === "particles" ? 0.15 + Math.random() * 0.25 : 0.04 + Math.random() * 0.07,
         });
       }
     }
     spawn();
+    window.__respawnBg = spawn;
 
     function tick() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.font = "600 20px 'Space Grotesk', sans-serif";
-      for (const p of particles) {
-        ctx.fillStyle = `rgba(124,92,255,${p.opacity})`;
-        ctx.font = `600 ${p.size}px 'Space Grotesk', sans-serif`;
-        ctx.fillText(p.letter, p.x, p.y);
-        p.y -= p.speed;
-        p.x += p.drift;
-        if (p.y < -30) { p.y = canvas.height + 30; p.x = Math.random() * canvas.width; }
+      if (state.settings.bgMode !== "none" && state.settings.anim) {
+        for (const p of particles) {
+          if (state.settings.bgMode === "particles") {
+            ctx.fillStyle = `rgba(${p.color},${p.opacity})`;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            ctx.fillStyle = `rgba(124,92,255,${p.opacity})`;
+            ctx.font = `600 ${p.size}px 'Space Grotesk', sans-serif`;
+            ctx.fillText(p.letter, p.x, p.y);
+          }
+          p.y -= p.speed;
+          p.x += p.drift;
+          if (p.y < -30) { p.y = canvas.height + 30; p.x = Math.random() * canvas.width; }
+        }
       }
       requestAnimationFrame(tick);
     }
@@ -811,6 +824,7 @@
 
   function onPlayerEliminated(data) {
     sfx.eliminated();
+    if (state.settings.vibrate && navigator.vibrate) navigator.vibrate(data.playerId === state.myId ? [80, 40, 80] : 40);
     const el = document.querySelector(`.sidebar-player[data-pid="${data.playerId}"]`);
     if (el) el.classList.add("eliminated");
     toast(`${playerNickname(data.playerId)} a fost eliminat!`);
@@ -1070,7 +1084,7 @@
     if (current.isBot) {
       // Bot "se gandeste" putin inainte sa inceapa (nu raspunde instant),
       // apoi scrie vizibil litera cu litera - tot procesul dureaza sub 3s.
-      const thinkDelay = 300 + Math.random() * 500;
+      const thinkDelay = 900 + Math.random() * 900;
       setTimeout(() => {
         if (state.sp.turnToken === myToken) spBotStartTyping(current, myToken);
       }, thinkDelay);
@@ -1100,7 +1114,7 @@
       }
       shown += word[i];
       i++;
-      showTypingPreview(bot.id, shown);
+      if (state.settings.typingPreview) showTypingPreview(bot.id, shown);
       if (i >= word.length) {
         clearInterval(typer);
         setTimeout(() => {
@@ -1293,15 +1307,61 @@
     const t = THEME_COLORS[name] || THEME_COLORS.violet;
     document.documentElement.style.setProperty("--violet", t.c1);
     document.documentElement.style.setProperty("--violet-2", t.c2);
-    document.querySelectorAll(".theme-swatch").forEach((el) => {
+    document.querySelectorAll("#theme-swatches .theme-swatch").forEach((el) => {
       el.classList.toggle("active", el.dataset.theme === name);
     });
     localStorage.setItem("fazan_theme", name);
   }
-  document.querySelectorAll(".theme-swatch").forEach((el) => {
+  document.querySelectorAll("#theme-swatches .theme-swatch").forEach((el) => {
     el.addEventListener("click", () => applyTheme(el.dataset.theme));
   });
   applyTheme(localStorage.getItem("fazan_theme") || "violet");
+
+  // fundal de joc (particule / litere plutitoare / dezactivat)
+  function applyBgMode(mode) {
+    state.settings.bgMode = mode;
+    localStorage.setItem("fazan_bg_mode", mode);
+    document.querySelectorAll("#bg-theme-swatches .bg-swatch").forEach((el) => {
+      el.classList.toggle("active", el.dataset.bg === mode);
+    });
+    if (window.__respawnBg) window.__respawnBg();
+  }
+  document.querySelectorAll("#bg-theme-swatches .bg-swatch").forEach((el) => {
+    el.addEventListener("click", () => applyBgMode(el.dataset.bg));
+  });
+  applyBgMode(state.settings.bgMode);
+
+  // vibrare la eliminare (daca dispozitivul suporta), timer marit, si
+  // reduce-motion manual (in plus fata de cel al sistemului de operare)
+  state.settings.vibrate = localStorage.getItem("fazan_vibrate") === "1";
+  state.settings.bigTimer = localStorage.getItem("fazan_bigtimer") === "1";
+  state.settings.reducedMotion = localStorage.getItem("fazan_reduced_motion") === "1";
+  const settingVibrate = document.getElementById("setting-vibrate");
+  const settingBigTimer = document.getElementById("setting-bigtimer");
+  const settingReducedMotion = document.getElementById("setting-reduced-motion");
+  if (!("vibrate" in navigator)) {
+    settingVibrate.disabled = true;
+    settingVibrate.closest(".switch-row").querySelector("span").textContent += " (indisponibil pe acest dispozitiv)";
+  }
+  settingVibrate.checked = state.settings.vibrate;
+  settingVibrate.addEventListener("change", (e) => {
+    state.settings.vibrate = e.target.checked;
+    localStorage.setItem("fazan_vibrate", e.target.checked ? "1" : "0");
+  });
+  settingBigTimer.checked = state.settings.bigTimer;
+  settingBigTimer.addEventListener("change", (e) => {
+    state.settings.bigTimer = e.target.checked;
+    localStorage.setItem("fazan_bigtimer", e.target.checked ? "1" : "0");
+    document.body.classList.toggle("big-timer", e.target.checked);
+  });
+  document.body.classList.toggle("big-timer", state.settings.bigTimer);
+  settingReducedMotion.checked = state.settings.reducedMotion;
+  settingReducedMotion.addEventListener("change", (e) => {
+    state.settings.reducedMotion = e.target.checked;
+    localStorage.setItem("fazan_reduced_motion", e.target.checked ? "1" : "0");
+    document.body.classList.toggle("force-reduced-motion", e.target.checked);
+  });
+  document.body.classList.toggle("force-reduced-motion", state.settings.reducedMotion);
 
   // ------------------------------------------------------------------
   // utilitare
@@ -1314,4 +1374,37 @@
 
   // preincarca dictionarul pentru singleplayer instant
   ensureDictionary();
+
+  // Badge "last updated" - arata cand a pornit ultima oara serverul (adica,
+  // practic, ultimul deploy - pe Render un redeploy inseamna intotdeauna un
+  // restart al procesului). Se actualizeaza periodic, ca sa fie "activ".
+  function fmtRelativeTime(iso) {
+    const diffMs = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return "chiar acum";
+    if (mins < 60) return `acum ${mins} min`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `acum ${hrs}h`;
+    const days = Math.floor(hrs / 24);
+    return `acum ${days}z`;
+  }
+  let __lastUpdatedIso = null;
+  function refreshLastUpdatedBadge() {
+    const el = document.getElementById("last-updated-text");
+    if (!el) return;
+    if (__lastUpdatedIso) {
+      el.textContent = "Server activ · pornit " + fmtRelativeTime(__lastUpdatedIso);
+    }
+  }
+  fetch("/api/meta")
+    .then((r) => r.json())
+    .then((data) => {
+      __lastUpdatedIso = data.serverStartedAt;
+      refreshLastUpdatedBadge();
+    })
+    .catch(() => {
+      const el = document.getElementById("last-updated-text");
+      if (el) el.textContent = "offline";
+    });
+  setInterval(refreshLastUpdatedBadge, 30000);
 })();
