@@ -195,7 +195,43 @@ mai bogată:
 
 ---
 
-## 6. Persistență reală (opțional, pentru productie serioasă)
+## 6. Persistență reală (opțional, dar recomandat — conturile se șterg altfel)
+
+**De ce contează asta:** Render (planul gratuit) șterge fișierele locale la fiecare redeploy (confirmat oficial de Render). De-asta conturile create dispar când urcăm o actualizare de cod. Soluția: o bază de date externă (Supabase), gratuită, care nu se șterge niciodată.
+
+### Pași exacți (5 minute):
+
+1. Mergi pe **supabase.com** → Sign up (gratuit, cu Google merge).
+2. **New Project** → alege un nume, o parolă pentru baza de date (o notezi undeva), regiune apropiată → Create.
+3. În proiectul nou, mergi la **SQL Editor** (din meniul din stânga) → **New query** → lipește exact acest cod și apasă **Run**:
+
+```sql
+create table players (
+  email text primary key,
+  nickname text not null,
+  password_hash text,
+  password_salt text,
+  wins int default 0,
+  matches int default 0,
+  losses int default 0,
+  best_streak int default 0,
+  current_streak int default 0,
+  words_played int default 0,
+  score int default 0
+);
+```
+
+4. Mergi la **Settings** (iconița de rotiță) → **API**. Copiază două valori:
+   - **Project URL** (arată gen `https://xxxxx.supabase.co`)
+   - **service_role key** (sub "Project API keys" — NU "anon" key, cel de "service_role", care e secret)
+5. Mergi pe **dashboard.render.com** → proiectul FazanJoc → **Environment** → adaugă 2 variabile noi:
+   - `SUPABASE_URL` = Project URL-ul copiat mai sus
+   - `SUPABASE_SERVICE_KEY` = service_role key-ul copiat mai sus
+6. Salvează — Render redeployează automat. În loguri (tab Logs), la pornire ar trebui să vezi: `Supabase configurat - incarc conturile salvate...`
+
+De acum, conturile supraviețuiesc oricărui redeploy, indiferent de câte actualizări facem.
+
+
 
 În versiunea curentă, leaderboard-ul și profilul sunt salvate într-un fișier
 JSON pe disc (`data/players.json`) — simplu, dar **nu rezistă la redeploy pe

@@ -1393,7 +1393,11 @@
     const el = document.getElementById("last-updated-text");
     if (!el) return;
     if (__lastUpdatedIso) {
-      el.textContent = "Server activ · pornit " + fmtRelativeTime(__lastUpdatedIso);
+      const d = new Date(__lastUpdatedIso);
+      const dd = String(d.getDate()).padStart(2, "0");
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const yyyy = d.getFullYear();
+      el.textContent = `Last updated ${dd}.${mm}.${yyyy} · ${fmtRelativeTime(__lastUpdatedIso)}`;
     }
   }
   fetch("/api/meta")

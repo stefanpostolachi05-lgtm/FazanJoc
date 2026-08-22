@@ -534,6 +534,126 @@ const RAW_WORDS = [
   "versiunea","licenta","abonamentul","contul","parola","username",
   "email","mesaj","notificare","alerta","semnal","conexiune",
   "reteaua","serverul","baza","fisierul","folderul","directorul",
+  // ============================================================
+  // EXTINDERE — cuvinte specifice raportate ca lipsa, plus forme
+  // masculin/feminin/trecut/prezent/viitor/plural pentru ele
+  // ============================================================
+  "accident","accidente","accidental","acru","acra","acri","acre",
+  "aciditate","timp","timpuri","timpul","iubit","iubita","iubiti",
+  "iubite","cina","cine","cinat","cinam","cinati","cineaza","ciclon",
+  "ciclonul","cicloane","ciclonic","furtuna","furtuni","tornada",
+  "tornade","uragan","uragane","taifun","taifunuri",
+  // ============================================================
+  // EXTINDERE MARE — stiinta: fizica, chimie, biologie, astronomie
+  // ============================================================
+  "atom","atomi","atomic","molecula","molecule","electron","electroni",
+  "proton","protoni","neutron","neutroni","nucleu","nuclee","izotop",
+  "energie","energii","forta","forte","masa","greutate","viteza",
+  "acceleratie","gravitatie","frecare","presiune","temperatura",
+  "caldura","frig","densitate","volum","suprafata","lungime",
+  "latime","inaltime","adancime","distanta","unghi","unghiuri",
+  "vector","vectori","camp","campuri","unda","unde","frecventa",
+  "amplitudine","lumina","sunet","electricitate","magnetism",
+  "reactie","reactii","element","elemente","compus","compusi",
+  "solutie","solutii","acid","acizi","baza","baze","sare","saruri",
+  "oxidare","reducere","catalizator","enzima","enzime","proteina",
+  "proteine","celula","celule","tesut","tesuturi","organ","organe",
+  "organism","organisme","specie","specii","genetica","gena","gene",
+  "cromozom","cromozomi","adn","arn","evolutie","mutatie","mutatii",
+  "bacterie","bacterii","virus","virusi","microb","microbi","fungus",
+  "planeta","planete","stea","stele","galaxie","galaxii","cometa",
+  "comete","asteroid","asteroizi","satelit","sateliti","orbita",
+  "orbite","eclipsa","eclipse","constelatie","constelatii","univers",
+  "telescop","telescoape","astronaut","astronauti","racheta","rachete",
+  "meteorit","meteoriti","nebuloasa","gaura-neagra","supernova",
+  // ============================================================
+  // EXTINDERE MARE — tehnologie si calculatoare
+  // ============================================================
+  "procesor","procesoare","memorie","memorii","cip","cipuri",
+  "algoritm","algoritmi","functie","functii","variabila","variabile",
+  "baza-de-date","server","servere","cod","coduri","software",
+  "hardware","sistem","sisteme","retea","retele","internet","browser",
+  "aplicatie","aplicatii","program","programe","fisier","fisiere",
+  "dosar","dosare","cloud","cablu","cabluri","wireless","bluetooth",
+  "router","routere","firewall","criptare","parola","parole",
+  "virus-informatic","hacker","hackeri","robot","roboti","inteligenta",
+  "algoritmi","date","informatie","informatii","procesare","tastatura",
+  // ============================================================
+  // EXTINDERE MARE — profesii
+  // ============================================================
+  "medic","medici","doctor","doctori","asistent","asistenta",
+  "chirurg","chirurgi","stomatolog","farmacist","veterinar",
+  "inginer","ingineri","arhitect","arhitecti","programator",
+  "programatori","dezvoltator","designer","profesor","profesori",
+  "invatator","invatatoare","director","directori","manager",
+  "contabil","contabili","economist","economisti","avocat","avocati",
+  "judecator","judecatori","procuror","procurori","notar","politist",
+  "politisti","pompier","pompieri","militar","militari","ofiter",
+  "ofiteri","soldat","soldati","sofer","soferi","pilot","piloti",
+  "mecanic","mecanici","electrician","electricieni","zidar","zidari",
+  "tamplar","tamplari","fermier","fermieri","bucatar","bucatari",
+  "chelner","chelneri","frizer","frizeri","croitor","croitori",
+  "artist","artisti","actor","actori","actrita","actrite","muzician",
+  "muzicieni","pictor","pictori","sculptor","sculptori","scriitor",
+  "scriitori","jurnalist","jurnalisti","fotograf","fotografi",
+  "sportiv","sportivi","antrenor","antrenori","arbitru","arbitri",
+  // ============================================================
+  // EXTINDERE MARE — sport (extins)
+  // ============================================================
+  "fotbal","baschet","volei","tenis","handbal","rugby","hochei",
+  "box","lupte","judo","karate","taekwondo","scrima","atletism",
+  "alergare","sprint","maraton","sarituri","aruncari","inot",
+  "ciclism","gimnastica","haltere","canotaj","caiac","triatlon",
+  "schi","snowboard","patinaj","bob","curling","motociclism",
+  "formula1","raliuri","surfing","skateboarding","escalada",
+  "parasutism","alpinism","echipa","echipe","meci","meciuri",
+  "campionat","campionate","turneu","turnee","liga","ligi",
+  "cupa","cupe","trofeu","trofee","medalie","medalii","antrenament",
+  "antrenamente","competitie","competitii","victorie","victorii",
+  "infrangere","infrangeri","egal","remiza","scor","scoruri",
+  // ============================================================
+  // EXTINDERE MARE — istorie, cultura, mitologie
+  // ============================================================
+  "istorie","istoric","epoca","epoci","perioada","perioade",
+  "imperiu","imperii","regat","regate","civilizatie","civilizatii",
+  "cultura","culturi","traditie","traditii","obicei","obiceiuri",
+  "sarbatoare","sarbatori","ritual","ritualuri","legenda","legende",
+  "mit","mituri","zeu","zei","zeita","zeite","erou","eroi",
+  "razboi","razboaie","batalie","batalii","cucerire","cuceriri",
+  "revolutie","revolutii","independenta","monarhie","republica",
+  "democratie","dictatura","rege","regi","regina","regine","print",
+  "printi","printesa","printese","imparat","imparati","imparateasa",
+  "arheolog","arheologi","muzeu","muzee","monument","monumente",
+  "ruina","ruine","cetate","cetati","fortareata","fortarete",
+  // ============================================================
+  // EXTINDERE MARE — expresii de zi cu zi, colocvial, salutari
+  // ============================================================
+  "salut","buna","servus","ciao","pa","bafta","noroc","sanatate",
+  "multumesc","mersi","rog","scuze","pardon","iertare","felicitari",
+  "condoleante","bunavenire","ramassbun","nostalgic","dor","dorul",
+  "amintire","amintiri","nostalgie","emotie","emotii","sentiment",
+  "sentimente","pasiune","pasiuni","entuziasm","dezamagire",
+  "dezamagit","multumire","multumit","satisfactie","satisfacut",
+  "nemultumire","nemultumit","frustrare","frustrat","anxietate",
+  "anxios","panica","stres","stresat","relaxare","relaxat","calm",
+  "linistit","agitatie","agitat","nerabdare","nerabdator",
+  // ============================================================
+  // EXTINDERE MARE — vehicule, transport, aviatie
+  // ============================================================
+  "avion","avioane","elicopter","elicoptere","drona","drone",
+  "aeroport","aeroporturi","pista","piste","turn","aripa","aripi",
+  "motor","motoare","reactor","reactoare","combustibil","pasager",
+  "pasageri","pilot","copilot","echipaj","zbor","zboruri","decolare",
+  "aterizare","altitudine","viteza","radar","control","turbulenta",
+  "nava","nave","vapor","vapoare","submarin","submarine","port",
+  "porturi","doc","docuri","ancora","ancore","punte","punti",
+  "cabina","cabine","tren","trenuri","locomotiva","locomotive",
+  "vagon","vagoane","sina","sine","gara","gari","peron","peroane",
+  "automobil","automobile","masina","masini","motocicleta",
+  "motociclete","bicicleta","biciclete","scuter","scutere",
+  "camion","camioane","autobuz","autobuze","tramvai","tramvaie",
+  "metrou","metrouri","taxi","volan","frana","frane","roata","roti",
+  "anvelopa","anvelope","far","faruri","claxon","claxoane",
 ];
 
 // Normalizeaza un cuvant: elimina spatii, litere mici, si elimina
@@ -586,9 +706,12 @@ function getLastTwo(word) {
   return getLastN(word, 2);
 }
 
-// Un cuvant "inchide" jocul (nu este permis) daca nu exista NICI UN alt
-// cuvant in dictionar care sa inceapa cu ultimele lui N litere (N = lungimea
-// lantului pentru game mode-ul curent: 2, 3 sau 4).
+// Un cuvant "inchide" jocul (nu este permis) daca nu exista MACAR 2 cuvinte
+// diferite in dictionar care sa inceapa cu ultimele lui N litere (N =
+// lungimea lantului). Cerem minim 2, nu doar 1: un singur cuvant obscur
+// (ex. "ei" ca unic continuator dupa "mei"/"tei") trecea tehnic testul, dar
+// practic niciun jucator nu se gandea la el - exact bug-ul raportat, cand
+// un cuvant terminat in "ei" a blocat toata runda.
 function endsGame(word, chainLength = 2) {
   const lastN = getLastN(word, chainLength);
   if (!lastN) return true;
@@ -596,7 +719,7 @@ function endsGame(word, chainLength = 2) {
   const map = PREFIX_MAPS[chainLength] || PREFIX_MAPS[2];
   const candidates = map.get(lastN) || [];
   const others = candidates.filter((c) => c !== normalizeWord(word));
-  return others.length === 0;
+  return others.length < 2;
 }
 
 function isRealWord(word) {
