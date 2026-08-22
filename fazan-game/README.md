@@ -195,6 +195,15 @@ mai bogată:
 
 ---
 
+## 6a. Sign in with Google (opțional)
+
+1. Mergi pe **console.cloud.google.com** → creează un proiect nou (sau folosește unul existent).
+2. **APIs & Services → Credentials → Create Credentials → OAuth client ID**.
+3. Tip aplicație: **Web application**. La "Authorized JavaScript origins", adaugă adresa exactă a site-ului tău (ex: `https://fazanjoc.onrender.com`, fără slash la final).
+4. Copiază **Client ID**-ul generat (arată gen `xxxxxxx.apps.googleusercontent.com`).
+5. În Render → Environment → adaugă variabila: `GOOGLE_CLIENT_ID` = client ID-ul copiat. Salvează.
+6. Butonul "Continue with Google" apare automat pe ecranul de start, odată ce variabila e setată.
+
 ## 6. Persistență reală (opțional, dar recomandat — conturile se șterg altfel)
 
 **De ce contează asta:** Render (planul gratuit) șterge fișierele locale la fiecare redeploy (confirmat oficial de Render). De-asta conturile create dispar când urcăm o actualizare de cod. Soluția: o bază de date externă (Supabase), gratuită, care nu se șterge niciodată.

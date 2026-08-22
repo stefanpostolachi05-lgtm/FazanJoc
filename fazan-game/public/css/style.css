@@ -163,6 +163,8 @@ h1, h2, h3 { font-family: var(--font-display); margin: 0; }
 
 .welcome-divider { display: flex; align-items: center; gap: 10px; margin: 18px 0 14px; color: var(--muted); font-size: 12px; }
 .welcome-divider::before, .welcome-divider::after { content: ""; flex: 1; height: 1px; background: var(--glass-border); }
+.google-signin-wrap { display: flex; justify-content: center; margin-top: 4px; }
+.google-signin-wrap.hidden { display: none; }
 
 /* efect de "sclipire" la hover, pentru butoane si carduri de meniu */
 .btn, .menu-card { position: relative; overflow: hidden; }

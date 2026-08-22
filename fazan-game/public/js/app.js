@@ -242,6 +242,39 @@
     enterGame();
   }
 
+  // Sign in with Google - activ doar daca serverul are GOOGLE_CLIENT_ID
+  // configurat (vezi README.md). Foloseste Google Identity Services (script
+  // incarcat in index.html), fara librarii noi pe partea de client.
+  function initGoogleSignIn(clientId) {
+    if (typeof google === "undefined" || !google.accounts) {
+      // scriptul Google inca nu s-a incarcat - reincercam scurt
+      setTimeout(() => initGoogleSignIn(clientId), 300);
+      return;
+    }
+    document.getElementById("google-signin-wrap").classList.remove("hidden");
+    google.accounts.id.initialize({
+      client_id: clientId,
+      callback: async (response) => {
+        try {
+          const res = await fetch("/api/google-login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ credential: response.credential }),
+          });
+          const data = await res.json();
+          if (!res.ok) { toast(data.error || "Autentificare Google esuata."); return; }
+          toast("Conectat cu Google!");
+          enterAsAccount(data);
+        } catch (err) {
+          toast("Nu am putut contacta serverul pentru autentificare Google.");
+        }
+      },
+    });
+    google.accounts.id.renderButton(document.getElementById("google-signin-btn"), {
+      theme: "outline", size: "large", width: 320, text: "continue_with",
+    });
+  }
+
   function enterGame() {
     connectSocket();
     renderMenuIdentity();
@@ -325,6 +358,10 @@
     const nickname = document.getElementById("signup-nickname").value.trim().slice(0, 20);
     const email = document.getElementById("signup-email").value.trim();
     const password = document.getElementById("signup-password").value;
+    if (nickname.length < 3) {
+      signupError.textContent = "Nickname-ul trebuie sa aiba cel putin 3 litere.";
+      return;
+    }
     const submitBtn = formSignup.querySelector("button[type=submit]");
     submitBtn.disabled = true;
     try {
@@ -970,13 +1007,15 @@
       }
     }
   }
-  function spEndsGame(word, chainLength) {
+  function spEndsGame(word, chainLength, usedWords) {
     const n = chainLength || 2;
     const lastN = word.slice(-n);
     if (lastN.length < n) return true;
     if (n === 2 && KNOWN_DEAD_ENDINGS.has(lastN)) return true;
-    const cands = (PREFIX_MAPS[n].get(lastN) || []).filter((c) => c !== word);
-    return cands.length === 0;
+    const cands = (PREFIX_MAPS[n].get(lastN) || []).filter(
+      (c) => c !== word && !(usedWords && usedWords.has(c))
+    );
+    return cands.length < 2;
   }
   function spValidate(raw, prefix, used, chainLength) {
     const w = normalizeWord(raw);
@@ -984,13 +1023,13 @@
     if (!state.dictionaryWords.includes(w)) return { valid: false, reason: "Cuvantul nu a fost gasit in dictionar." };
     if (prefix && !w.startsWith(prefix)) return { valid: false, reason: `Cuvantul trebuie sa inceapa cu "${prefix.toUpperCase()}".` };
     if (used.has(w)) return { valid: false, reason: "Acest cuvant a fost deja folosit in aceasta partida." };
-    if (spEndsGame(w, chainLength)) return { valid: false, reason: "Acest cuvant incheie jocul si nu este permis." };
+    if (spEndsGame(w, chainLength, used)) return { valid: false, reason: "Acest cuvant incheie jocul si nu este permis." };
     return { valid: true, normalized: w };
   }
   function spPickBotWord(prefix, used, difficulty, chainLength) {
     const n = chainLength || 2;
     let cands = prefix ? (PREFIX_MAPS[n].get(prefix) || []) : state.dictionaryWords;
-    cands = cands.filter((w) => !used.has(w) && !spEndsGame(w, n));
+    cands = cands.filter((w) => !used.has(w) && !spEndsGame(w, n, used));
     if (!cands.length) return null;
     const failChance = difficulty === "easy" ? 0.35 : difficulty === "medium" ? 0.12 : 0.02;
     if (Math.random() < failChance) return null;
@@ -1405,6 +1444,7 @@
     .then((data) => {
       __lastUpdatedIso = data.serverStartedAt;
       refreshLastUpdatedBadge();
+      if (data.googleClientId) initGoogleSignIn(data.googleClientId);
     })
     .catch(() => {
       const el = document.getElementById("last-updated-text");

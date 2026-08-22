@@ -68,7 +68,7 @@
       <form id="form-signup" class="auth-form hidden">
         <div class="field">
           <label for="signup-nickname">Nickname</label>
-          <input id="signup-nickname" maxlength="20" placeholder="ex: Alex" autocomplete="off" required />
+          <input id="signup-nickname" maxlength="20" minlength="3" placeholder="ex: Alex (minim 3 litere)" autocomplete="off" required />
         </div>
         <div class="field">
           <label for="signup-email">Email</label>
@@ -82,6 +82,9 @@
         <button type="submit" class="btn btn-primary btn-lg">Creează cont</button>
       </form>
 
+      <div id="google-signin-wrap" class="google-signin-wrap hidden">
+        <div id="google-signin-btn"></div>
+      </div>
       <div class="welcome-divider"><span>sau</span></div>
       <button id="btn-guest" class="btn btn-ghost btn-lg">Continuă ca Guest</button>
       <p class="welcome-note">Ca invitat poți juca doar <b>Singleplayer</b>. Multiplayer necesită cont.</p>
@@ -332,6 +335,7 @@
   </div>
 </section>
 
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js"></script>
 </body>

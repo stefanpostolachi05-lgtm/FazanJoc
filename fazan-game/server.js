@@ -231,7 +231,7 @@ function recordMatchResult({ email, nickname, won, wordsPlayed }) {
 const SERVER_STARTED_AT = new Date().toISOString();
 
 app.get("/api/meta", (req, res) => {
-  res.json({ serverStartedAt: SERVER_STARTED_AT, wordCount: WORD_LIST.length });
+  res.json({ serverStartedAt: SERVER_STARTED_AT, wordCount: WORD_LIST.length, googleClientId: process.env.GOOGLE_CLIENT_ID || null });
 });
 
 app.get("/api/dictionary", (req, res) => {
@@ -298,6 +298,7 @@ app.post("/api/signup", (req, res) => {
   const { email, nickname, password } = req.body || {};
   if (!isValidEmail(email)) return res.status(400).json({ error: "Adresa de email nu este valida." });
   if (!nickname || !nickname.toString().trim()) return res.status(400).json({ error: "Nickname-ul este necesar." });
+  if (nickname.toString().trim().length < 3) return res.status(400).json({ error: "Nickname-ul trebuie sa aiba cel putin 3 litere." });
   if (!password || password.toString().length < 6) {
     return res.status(400).json({ error: "Parola trebuie sa aiba cel putin 6 caractere." });
   }
@@ -340,6 +341,47 @@ app.post("/api/login", (req, res) => {
   }
   const token = signToken(key);
   res.json({ token, profile: publicProfile(account) });
+});
+
+// Sign in with Google - verifica token-ul primit de la Google Identity
+// Services printr-un simplu fetch (fara librarie noua) catre endpoint-ul
+// oficial de verificare al Google. Necesita GOOGLE_CLIENT_ID in .env - vezi
+// README.md, sectiunea "Sign in with Google", pentru pasii de configurare.
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
+app.post("/api/google-login", async (req, res) => {
+  const { credential } = req.body || {};
+  if (!GOOGLE_CLIENT_ID) {
+    return res.status(501).json({ error: "Sign in with Google nu este configurat pe acest server." });
+  }
+  if (!credential) return res.status(400).json({ error: "Lipseste token-ul Google." });
+  try {
+    const verifyRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`);
+    if (!verifyRes.ok) return res.status(401).json({ error: "Token Google invalid." });
+    const payload = await verifyRes.json();
+    if (payload.aud !== GOOGLE_CLIENT_ID) {
+      return res.status(401).json({ error: "Token Google nu corespunde acestei aplicatii." });
+    }
+    if (!payload.email || payload.email_verified !== "true") {
+      return res.status(401).json({ error: "Email Google neverificat." });
+    }
+    const key = payload.email.toLowerCase();
+    let account = PLAYERS_DB[key];
+    if (!account) {
+      // Cont nou, creat automat prin Google - fara parola (login mereu prin Google)
+      const rawNickname = (payload.name || payload.email.split("@")[0]).toString().trim().slice(0, 20);
+      const nickname = rawNickname.length >= 3 ? rawNickname : rawNickname + "___".slice(0, 3 - rawNickname.length);
+      account = PLAYERS_DB[key] = {
+        email: key, nickname, passwordHash: null, passwordSalt: null,
+        wins: 0, matches: 0, losses: 0, bestStreak: 0, currentStreak: 0, wordsPlayed: 0, score: 0,
+      };
+      persistPlayer(key);
+    }
+    const token = signToken(key);
+    res.json({ token, profile: publicProfile(account) });
+  } catch (err) {
+    console.error("Google login esuat:", err.message);
+    res.status(500).json({ error: "Eroare la verificarea token-ului Google." });
+  }
 });
 
 // ---------------------------------------------------------------------------

@@ -654,6 +654,42 @@ const RAW_WORDS = [
   "camion","camioane","autobuz","autobuze","tramvai","tramvaie",
   "metrou","metrouri","taxi","volan","frana","frane","roata","roti",
   "anvelopa","anvelope","far","faruri","claxon","claxoane",
+  // ============================================================
+  // EXTINDERE — cuvinte specifice raportate lipsa
+  // ============================================================
+  "ulcior","ulcioare","lemn","lemne","erbivor","erbivore","carnivor",
+  "carnivore","omnivor","omnivore","parinte","parinti","exemplu",
+  "exemple","zar","zaruri","atribut","atribute","respect","respecte",
+  "respectuos","respectat","respecta","respectam","respectati",
+  // ============================================================
+  // EXTINDERE — materiale si obiecte, complet la plural
+  // ============================================================
+  "material","materiale","obiect","obiecte","unealta","unelte",
+  "instrument","instrumente","aparat","aparate","dispozitiv",
+  "dispozitive","piesa","piese","component","componente",
+  "accesoriu","accesorii","recipient","recipiente","container",
+  "containere","cutie","cutii","borcan","borcane","sticla","sticle",
+  "vas","vase","farfurie","farfurii","lingura","linguri","furculita",
+  "furculite","cutit","cutite","pahar","pahare","cana","cani",
+  "oala","oale","tigaie","tigai","tava","tavi","gratar","gratare",
+  "cuptor","cuptoare","frigider","frigidere","aragaz","aragazuri",
+  "masa","mese","scaun","scaune","dulap","dulapuri","pat","paturi",
+  "canapea","canapele","fotoliu","fotolii","birou","birouri",
+  "raft","rafturi","biblioteca","biblioteci","oglinda","oglinzi",
+  "covor","covoare","perna","perne","patura","paturi","cearceaf",
+  "cearceafuri","prosop","prosoape","perie","perii","pieptene",
+  "piepteni","foarfeca","foarfeci","ciocan","ciocane","cleste",
+  "clesti","surubelnita","surubelnite","surub","suruburi","cui",
+  "cuie","piulita","piulite","saiba","saibe","burghiu","burghie",
+  "fierastrau","fierastraie","topor","topoare","sapa","sape",
+  "greblă","greble","lopata","lopeti","furca","furci","coasa","coase",
+  "secera","secere","plug","pluguri","tractor","tractoare",
+  "lemnos","metalic","plastic","sticlos","textil","ceramica",
+  "ceramic","piatra","pietre","caramida","caramizi","beton",
+  "otel","fier-vechi","tabla","table","hartie","hartii","carton",
+  "cartoane","panza","panze","fibra","fibre","fir","fire",
+  "ata","ate","sfoara","sfori","franghie","franghii","lant","lanturi",
+  "cablu","cabluri","tub","tuburi","teava","tevi","furtun","furtunuri",
 ];
 
 // Normalizeaza un cuvant: elimina spatii, litere mici, si elimina
@@ -707,18 +743,22 @@ function getLastTwo(word) {
 }
 
 // Un cuvant "inchide" jocul (nu este permis) daca nu exista MACAR 2 cuvinte
-// diferite in dictionar care sa inceapa cu ultimele lui N litere (N =
-// lungimea lantului). Cerem minim 2, nu doar 1: un singur cuvant obscur
-// (ex. "ei" ca unic continuator dupa "mei"/"tei") trecea tehnic testul, dar
-// practic niciun jucator nu se gandea la el - exact bug-ul raportat, cand
-// un cuvant terminat in "ei" a blocat toata runda.
-function endsGame(word, chainLength = 2) {
+// diferite, INCA NEFOLOSITE in aceasta partida, care sa inceapa cu ultimele
+// lui N litere. FIX IMPORTANT: inainte verificam doar dictionarul static,
+// fara sa tinem cont de cuvintele deja jucate - intr-o partida lunga, un
+// prefix cu multe optiuni la inceput putea ajunge la 0 optiuni ramase mai
+// tarziu (toate folosite), dar codul tot spunea "nu e o incheiere" -> jocul
+// se bloca exact cand se epuiza vocabularul disponibil pentru acel prefix.
+function endsGame(word, chainLength = 2, usedWords = null) {
   const lastN = getLastN(word, chainLength);
   if (!lastN) return true;
   if (chainLength === 2 && KNOWN_DEAD_ENDINGS.has(lastN)) return true;
   const map = PREFIX_MAPS[chainLength] || PREFIX_MAPS[2];
   const candidates = map.get(lastN) || [];
-  const others = candidates.filter((c) => c !== normalizeWord(word));
+  const normalizedSelf = normalizeWord(word);
+  const others = candidates.filter(
+    (c) => c !== normalizedSelf && !(usedWords && usedWords.has(c))
+  );
   return others.length < 2;
 }
 
@@ -751,7 +791,7 @@ function validateWord(rawWord, requiredPrefix, usedWords, chainLength = 2) {
   if (usedWords && usedWords.has(word)) {
     return { valid: false, reason: "Acest cuvant a fost deja folosit in aceasta partida." };
   }
-  if (endsGame(word, chainLength)) {
+  if (endsGame(word, chainLength, usedWords)) {
     return {
       valid: false,
       reason: "Acest cuvant incheie jocul (nu exista niciun cuvant continuator) si nu este permis.",
@@ -767,7 +807,7 @@ function pickBotWord(requiredPrefix, usedWords, difficulty, chainLength = 2) {
     ? (map.get(requiredPrefix) || [])
     : WORD_LIST;
 
-  candidates = candidates.filter((w) => !usedWords.has(w) && !endsGame(w, chainLength));
+  candidates = candidates.filter((w) => !usedWords.has(w) && !endsGame(w, chainLength, usedWords));
 
   if (candidates.length === 0) return null;
 
